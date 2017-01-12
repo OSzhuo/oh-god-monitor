@@ -6,8 +6,12 @@
 
 int main(void)
 {
-	char *p = "/tmp/tree.st";
-	og_tree_init(p, 256);
+	char *p = "/ibig/tree.st";
+	int tree_h;
+	tree_h = og_tree_init(p, 256);
+printf("get handler %d\n", tree_h);
+	//sleep(5);
+	og_tree_destory(tree_h);
 	
 
 	return 0;
