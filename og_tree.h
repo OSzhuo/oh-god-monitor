@@ -14,6 +14,7 @@
  * 	------- 2017-01-05 -------
  * 	start
  * 	[do not support multi-thread]
+ * 	support max file size UINT32_MAX*OG_PAGE_SIZE
  * 
  */
 
