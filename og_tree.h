@@ -22,8 +22,9 @@
 
 #define OG_NAME_MAX		255
 #define OG_HANDLER_CNT		8
-/*every page is 64M; the value must be N*4k*/
-#define OG_PAGE_SIZE		(4*1024*8*1024UL)
+/*every page is 32M; the value must be N*4k*/
+//#define OG_PAGE_SIZE		(4*1024*8*1024UL)
+#define OG_PAGE_SIZE		(4*1024*1024UL)
 
 #define OG_DFT_MEM_PAGE		(4*1024UL)
 
@@ -62,8 +63,7 @@ typedef struct og_node_t {
 } og_node;
 
 int og_init(const char *path, int size);
-int og_insert(int handler, void *data, int size);
-int og_delete_by_cmp(int handler, void *data, int size);
+int og_insert(int handler, const void *data, int size);
 int og_delete_by_cmp(int handler, void *data, int size);
 
 void og_destory(int handler);
