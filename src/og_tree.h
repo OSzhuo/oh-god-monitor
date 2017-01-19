@@ -50,6 +50,9 @@ typedef struct og_pos_t {
 	uint32_t	offset;
 } og_pos;
 
+#define _OG_INUSE	(0x01UL<<0)
+#define _OG_ROOT	(0x01UL<<1)
+
 /**
  * left child
  * right sibling
@@ -58,13 +61,14 @@ typedef struct og_node_t {
 	og_pos		left;		/*first child*/
 	og_pos		right;		/*next sibling*/
 	og_pos		parent;		/*parent node offset*/
-	uint8_t		used;		/*1 means inuse*/
+	uint8_t		mask;		/*0 means unused, others */
 	char		data[0];	/*the data*/
 } og_node;
 
 int og_init(const char *path, int size);
 int og_insert(int handler, const void *data, int size);
 int og_delete_by_cmp(int handler, void *data, int size);
+void og_travel(int handler, void (*func_p)(void *));
 
 void og_destory(int handler);
 

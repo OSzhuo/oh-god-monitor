@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "og_tree.h"
 /*for test*/
@@ -40,6 +41,8 @@ int _insert_data(_og_head *head, const void *data, size_t n, og_pos *pos);
 int _load_pageN_wrt(_og_head *head, uint32_t n);
 int _load_pageN_read(_og_head *head, uint32_t n);
 int _load_pageN(_og_head *head, uint32_t n, int iswrt);
+
+void _prt_one_page(void *page, int node_len, void (*func)(void *));
 
 int og_init(const char *path, int size)
 {
@@ -125,9 +128,10 @@ int og_init(const char *path, int size)
 }
 
 /**
- * insert a node
+ * insert a rightmost node
  * 
  */
+//int og_insert_by_parent(int handler, const void *data, int size);
 int og_insert(int handler, const void *data, int size)
 {
 	if(!handlers[handler])
@@ -162,7 +166,9 @@ int _insert_data(_og_head *head, const void *data, size_t n, og_pos *pos)
 		}
 	}
 	char *tmp = head->wrt_page;
-	memcpy(tmp+pos->offset, data, n);
+	//if(pos->page)
+	memcpy(tmp+pos->offset+offsetof(og_node, data), data, n);
+	//printf("insert pos %u\n", pos->offset);
 
 	return 0;
 }
@@ -308,8 +314,8 @@ int _get_free_node_in_page(char *page, uint32_t len, uint32_t *off)
 //if(offset > 4193010)
 //	printf("offset = %lu page_size %lu \n", offset, OG_PAGE_SIZE);
 
-		if(0 == this->used){
-			this->used = 1;
+		if(!(this->mask & _OG_INUSE)){
+			this->mask |= _OG_INUSE;
 			*off = offset;
 //printf("out function %s()\n", __FUNCTION__);
 			return 0;
@@ -399,10 +405,42 @@ void og_destory(int handler)
 	free(head);
 }
 
-void og_travel(void (*func_p)(void *), _og_head *head)
+void og_travel(int handler, void (*func_p)(void *))
 {
+	_og_head *head = handlers[handler];
+	char *tmp_page;
+	int max = head->file_head->page_cnt;
+	uint32_t len = head->file_head->data_len + sizeof(og_node);
+	int i;
 
-	return 0;
+	for(i = 0; i < max; i++){
+		if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, i))){
+			perror("_mmap_pageN()");
+			continue;
+		}
+		//printf("this page is %d data len is %d\n", i, head->file_head->data_len);
+		_prt_one_page(tmp_page, len, func_p);
+		munmap(tmp_page, OG_PAGE_SIZE);
+	}
+
+	return;
+}
+
+void _prt_one_page(void *page, int node_len, void (*func)(void *))
+{
+	uint32_t off = 0;
+	og_node *this = page;
+	char *tmp = page;
+
+
+	while(off + node_len <= OG_PAGE_SIZE){
+		if(this->mask & _OG_INUSE){
+			func(this->data);
+			//printf("offset %u\n", off); //sleep(1);
+		}
+		off += node_len;
+		this = (og_node *)(tmp + off);
+	}
 }
 
 /**
@@ -417,6 +455,11 @@ void *_mmap_pageN(int fd, uint32_t n)
 			fd, _mem_page_size + n * OG_PAGE_SIZE);
 }
 
+/**
+ * get next unused handler
+ * return 	>=0	the handler
+ * 		<0	err
+ */
 int _get_next_handler(void)
 {
 	int i;
