@@ -15,6 +15,7 @@
 /*this _og_head is used for in memory*/
 typedef struct _og_head_t {
 	og_head		*file_head;	/*file head mapped into memory*/
+	og_node		*root;		/*tree_head in memory*/
 	uint32_t	pageN_wrt;	/*now pageN used for write*/
 	uint32_t	w_free_pos;
 	uint32_t	pageN_read;	/*now pageN used for read*/
@@ -38,6 +39,12 @@ int _append_new_page(int fd, uint32_t cnt);
 int _allocate_page(int fd, off_t offset);
 int _insert_data(_og_head *head, const void *data, size_t n, og_pos *pos);
 
+int _insert_node(og_node *this, og_node *parent);
+
+int _delete_sub_tree(_og_head *head, og_node *this);
+void _free_left_node(_og_head *head, og_node *this);
+int _free_data_node(_og_head *head, og_pos *pos);
+
 int _load_pageN_wrt(_og_head *head, uint32_t n);
 int _load_pageN_read(_og_head *head, uint32_t n);
 int _load_pageN(_og_head *head, uint32_t n, int iswrt);
@@ -54,6 +61,7 @@ int og_init(const char *path, int size)
 	int fd;
 	og_head *map;
 	_og_head *head;
+	og_node *root;
 	void *page_w;
 	void *page_r;
 
@@ -84,15 +92,26 @@ int og_init(const char *path, int size)
 		return -1;
 	}
 
+	if(NULL == (root = malloc(sizeof(og_node)))){
+		perror("root_malloc()");
+		close(fd);
+		munmap(map, _mem_page_size);
+		return -1;
+	}
+	root->l_child = root->r_sib = root->parent = NULL;
+
 	/*map the first(0) page*/
 	if(MAP_FAILED == (page_w = _mmap_pageN(fd, 0))){
 		perror("mmap()");
+		free(root);
 		munmap(map, _mem_page_size);
 		close(fd);
 		return -1;
 	}
+
 	if(MAP_FAILED == (page_r = _mmap_pageN(fd, 0))){
 		perror("mmap()");
+		free(root);
 		munmap(map, _mem_page_size);
 		munmap(page_w, OG_PAGE_SIZE);
 		close(fd);
@@ -101,6 +120,7 @@ int og_init(const char *path, int size)
 
 	if(NULL == (head = malloc(sizeof(_og_head)))){
 		perror("malloc()");
+		free(root);
 		munmap(page_w, OG_PAGE_SIZE);
 		munmap(page_r, OG_PAGE_SIZE);
 		munmap(map, _mem_page_size);
@@ -111,6 +131,8 @@ int og_init(const char *path, int size)
 	map->page_cnt = 1;
 	map->data_len = size;
 	map->head_size = _mem_page_size;
+
+	head->root= root;
 
 	head->file_head = map;
 	head->fd = fd;
@@ -128,26 +150,172 @@ int og_init(const char *path, int size)
 }
 
 /**
+ * set the node as parent node(push into stack)
+ */
+int og_set_parent()
+{
+
+	return 0;
+}
+
+/**
+ * insert a node by comparsion
+ *
+*/
+og_node *og_insert_by_cmp(int handler, const void *data, int size, og_node *parent)
+{
+	/*wait...*/
+
+	return 0;
+}
+
+/**
  * insert a rightmost node
+ * @handler
+ * @data
+ * @size
+ * @parent
+ * return	NULL for failed, success return pointor that point to node
  * 
  */
 //int og_insert_by_parent(int handler, const void *data, int size);
-int og_insert(int handler, const void *data, int size)
+og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *parent)
 {
 	if(!handlers[handler])
-		return -1;
+		return NULL;
 	og_pos pos;
 	_og_head *head = handlers[handler];
 
 	//_next_free_node_w();
 	if(_get_free_node_w(head, &pos)){
 		printf("_get_free_node_w err!!\n");
-		return -1;
+		return NULL;
 	}
 	//printf("get the node free (page[%lu], offset[%lu])\n", pos.page, pos.offset);
 	if(_insert_data(head, data, size, &pos) < 0){
+		return NULL;
+	}
+
+	og_node *node;
+	if(NULL == (node = malloc(sizeof(og_node)))){
+		perror("malloc()");
+		return NULL;
+	}
+
+	if(NULL == parent){
+printf("insert head ok !\n");
+		parent = head->root;
+	}
+	_insert_node(node, parent);
+	node->pos.page = pos.page;
+	node->pos.offset = pos.offset;
+
+	return node;
+}
+
+/**
+ * Delete a node and all below it
+ * 
+ * 
+*/
+int og_delete_node(int handler, og_node *this)
+{
+	if(!handlers[handler])
+		return -1;
+	_og_head *head = handlers[handler];
+
+	_delete_sub_tree(head, this);
+
+	return 0;
+}
+
+/**
+ * delete node 
+ * 
+ */
+int _delete_sub_tree(_og_head *head, og_node *this)
+{
+	/*this == NULL, it means that the the upper's left is NULL*/
+	if(!this->l_child){
+		return 0;
+	}
+
+	while(1){
+		_delete_sub_tree(head, this->l_child);
+		_free_left_node(head, this);
+		if(!this->l_child)
+			return 0;
+	}
+
+	return 0;
+}
+
+/**
+ * move @this's right node to left, then free the left
+ * WARNING	this function do not check if left have sub-tree
+ */
+void _free_left_node(_og_head *head, og_node *this)
+{
+	if(this->l_child)
+		return;
+
+	og_node *tmp = this->l_child;
+
+	this->l_child = this->l_child->r_sib;
+	_free_data_node(head, &tmp->pos);
+	memset(tmp, 0x00, sizeof(og_node));
+	free(tmp);
+
+}
+
+/**
+ * insert node below @parent
+ * 
+ *
+ */
+int _insert_node(og_node *this, og_node *parent)
+{
+	this->parent = parent;
+	if(!parent->l_child){
+		parent->l_child = this;
+		return 0;
+	}
+
+	this->r_sib = parent->r_sib;
+	parent->r_sib = this;
+
+	return 0;
+}
+
+/**
+ * get the rightmost node
+ */
+og_node *_get_right_node(og_node *this)
+{
+	if(NULL == this->r_sib)
+		return this;
+	return _get_right_node(this);
+}
+
+/**
+ * set the node unused
+ * warning:	do not check anything
+ */
+int _free_data_node(_og_head *head, og_pos *pos)
+{
+	if(pos->page != head->pageN_wrt && _load_pageN_wrt(head, pos->page) < 0){
 		return -1;
 	}
+
+	char *page = head->wrt_page;
+
+	og_data_node *this = (og_data_node *)(page + pos->offset);
+	if(pos->offset + sizeof(og_data_node) > OG_PAGE_SIZE){
+		return -1;
+	}
+
+	this->mask &= ~_OG_INUSE;
+	head->w_free_pos = pos->offset;
 
 	return 0;
 }
@@ -167,7 +335,7 @@ int _insert_data(_og_head *head, const void *data, size_t n, og_pos *pos)
 	}
 	char *tmp = head->wrt_page;
 	//if(pos->page)
-	memcpy(tmp+pos->offset+offsetof(og_node, data), data, n);
+	memcpy(tmp+pos->offset+offsetof(og_data_node, data), data, n);
 	//printf("insert pos %u\n", pos->offset);
 
 	return 0;
@@ -239,7 +407,7 @@ int _get_free_node_append(_og_head *head, og_pos *pos, int iswrt)
 	if(!iswrt)
 		return -1;
 
-	uint32_t len = head->file_head->data_len + sizeof(og_node);
+	uint32_t len = head->file_head->data_len + sizeof(og_data_node);
 	char *page = head->wrt_page;
 	uint32_t page_i = head->pageN_wrt;
 	//og_node *this = page;
@@ -307,7 +475,7 @@ int _get_free_node_in_page(char *page, uint32_t len, uint32_t *off)
 {
 //printf("in function %s()\n", __FUNCTION__);
 	uint32_t offset = *off;
-	og_node *this = (og_node *)(page + offset);
+	og_data_node *this = (og_data_node *)(page + offset);
 //printf("start find with offset[%lu]\n", *off);
 
 	while(offset + len <= OG_PAGE_SIZE){
@@ -321,7 +489,7 @@ int _get_free_node_in_page(char *page, uint32_t len, uint32_t *off)
 			return 0;
 		}
 		offset += len;
-		this = (og_node *)(page + offset);
+		this = (og_data_node *)(page + offset);
 	}
 
 printf("err out function %s(): need append new page\n", __FUNCTION__);
@@ -410,7 +578,7 @@ void og_travel(int handler, void (*func_p)(void *))
 	_og_head *head = handlers[handler];
 	char *tmp_page;
 	int max = head->file_head->page_cnt;
-	uint32_t len = head->file_head->data_len + sizeof(og_node);
+	uint32_t len = head->file_head->data_len + sizeof(og_data_node);
 	int i;
 
 	for(i = 0; i < max; i++){
@@ -429,7 +597,7 @@ void og_travel(int handler, void (*func_p)(void *))
 void _prt_one_page(void *page, int node_len, void (*func)(void *))
 {
 	uint32_t off = 0;
-	og_node *this = page;
+	og_data_node *this = page;
 	char *tmp = page;
 
 
@@ -439,7 +607,7 @@ void _prt_one_page(void *page, int node_len, void (*func)(void *))
 			//printf("offset %u\n", off); //sleep(1);
 		}
 		off += node_len;
-		this = (og_node *)(tmp + off);
+		this = (og_data_node *)(tmp + off);
 	}
 }
 

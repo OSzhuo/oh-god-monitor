@@ -12,6 +12,10 @@
 /**
  * log
  * 	------- 2017-01-05 -------
+ * 	give up the method of node starage(all in file)
+ *	(now, whole tree store in memory, data write in file)
+ *
+ * 	------- 2017-01-05 -------
  * 	start
  * 	[do not support multi-thread]
  * 	support max file size UINT32_MAX*OG_PAGE_SIZE
@@ -50,24 +54,45 @@ typedef struct og_pos_t {
 	uint32_t	offset;
 } og_pos;
 
-#define _OG_INUSE	(0x01UL<<0)
-#define _OG_ROOT	(0x01UL<<1)
-
 /**
+ * old ---- 2017-02-08
  * left child
  * right sibling
  */
+//typedef struct og_node_t {
+//	og_pos		left;		/*first child*/
+//	og_pos		right;		/*next sibling*/
+//	og_pos		parent;		/*parent node offset*/
+//	uint8_t		mask;		/*0 means unused, others */
+//	char		data[0];	/*the data*/
+//} og_node;
+
+/**
+ * tree_node stored in memory
+ */
 typedef struct og_node_t {
-	og_pos		left;		/*first child*/
-	og_pos		right;		/*next sibling*/
-	og_pos		parent;		/*parent node offset*/
-	uint8_t		mask;		/*0 means unused, others */
-	char		data[0];	/*the data*/
+	struct og_node_t	*l_child;	/*first child*/
+	struct og_node_t	*r_sib;		/*next sibling*/
+	struct og_node_t	*parent;	/*parent node offset*/
+	og_pos			pos;		/*node pos in file*/
+ //-----------WARNING-----for a parent, if child is NULL, sib must NULL----
 } og_node;
 
+#define _OG_INUSE	(0x01UL<<0)
+//#define _OG_ROOT	(0x01UL<<1)
+/**
+ * data_node stored in file
+ * 
+ */
+typedef struct og_data_node_t {
+	uint8_t		mask;		/*0 means unused, others */
+	char		data[0];	/*the data*/
+} og_data_node;
+
 int og_init(const char *path, int size);
-int og_insert(int handler, const void *data, int size);
-int og_delete_by_cmp(int handler, void *data, int size);
+og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *parent);
+//int og_delete_by_cmp(int handler, void *data, int size);
+int og_delete_node(int handler, og_node *this);
 void og_travel(int handler, void (*func_p)(void *));
 
 void og_destory(int handler);

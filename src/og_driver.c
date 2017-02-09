@@ -27,20 +27,24 @@ int main(void)
 
 	tree_h = og_init(p, 246+sizeof(struct my_data_t));
 printf("get handler %d\n", tree_h);
-printf("sizeof() is %lu\n", sizeof(data));
+printf("sizeof() is %lu\n", sizeof(og_node));
 	int i = 110970;
 	int x = 0;
+	og_node *t = NULL;
 	while(i--){
 		x++;
 		data.id = x;
 		data.class = x % 5;
 		strcpy(data.name, "mdzz");
-		og_insert(tree_h, &data, sizeof(data));
+		if(NULL == (t = og_insert_by_parent(tree_h, &data, sizeof(data), t))){
+			printf("err!\n");
+			break;
+		}
 	}
-//sleep(3);
+sleep(30);
 og_travel(tree_h, prt_func);
 printf("this x = %d i = %d\n", x, i);
-	//sleep(500);
+	sleep(500);
 	//og_destory(tree_h);
 	
 
