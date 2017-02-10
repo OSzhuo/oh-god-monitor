@@ -93,6 +93,8 @@ int og_init(const char *path, int size);
 og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *parent);
 //int og_delete_by_cmp(int handler, void *data, int size);
 int og_delete_node(int handler, og_node *this);
+int og_edit_data(int handler, og_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n);
+void og_tree_travel(int handler, void (*func_p)(void *));
 void og_travel(int handler, void (*func_p)(void *));
 
 void og_destory(int handler);
