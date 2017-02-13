@@ -94,6 +94,12 @@ og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *p
 //int og_delete_by_cmp(int handler, void *data, int size);
 int og_delete_node(int handler, og_node *this);
 int og_edit_data(int handler, og_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n);
+int og_move_node(int handler, og_node *this, og_node *parent);
+int og_preorder_R(int handler, int (*node_func)(void *file, void *data, const og_node *node), void *data);
+int og_get_node_travel(int handler, const og_node *this, int (*func_p)(void *, void *, const og_node *), void *data);
+
+og_node *og_parent(const og_node *this);
+
 void og_tree_travel(int handler, void (*func_p)(void *));
 void og_travel(int handler, void (*func_p)(void *));
 

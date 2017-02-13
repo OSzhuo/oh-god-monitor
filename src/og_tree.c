@@ -7,7 +7,8 @@
 #include <stddef.h>
 
 #include "og_tree.h"
-/*for test*/
+
+/*for debug*/
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
@@ -15,6 +16,7 @@
 /*this _og_head is used for in memory*/
 typedef struct _og_head_t {
 	og_head		*file_head;	/*file head mapped into memory*/
+	/* =*= NOTE: root can not return by any function,and root->parent and root->right_sibling always NULL =*= */
 	og_node		*root;		/*tree_head in memory*/
 	uint32_t	pageN_wrt;	/*now pageN used for write*/
 	uint32_t	w_free_pos;
@@ -23,17 +25,20 @@ typedef struct _og_head_t {
 	void		*read_page;	/*pointer to the mapped page*/
 	int32_t		fd;
 	char		path[OG_NAME_MAX+1];	/*tree file path*/
+	/*from _og_travel_head*/
+	void		*tmp_page;
+	uint32_t	pageN_tmp;
 	//uint32_t	used_size;	/*length already use in file*/
 } _og_head;
 
-typedef struct _og_travel_head_t {
-	og_node		*root;		/*tree_head in memory*/
-	uint32_t	pageN;	/*now pageN used for write*/
-	uint32_t	maxN;	/*now pageN used for write*/
-	void		*tmp_page;	/*pointer to the mapped page*/
-	int32_t		fd;
-	//uint32_t	used_size;	/*length already use in file*/
-} _og_travel_head;
+/*temp struct that used for travel*/
+//typedef struct _og_travel_head_t {
+//	og_node		*root;		/*tree_head in memory*/
+//	uint32_t	pageN;		/*now pageN used for write*/
+//	uint32_t	maxN;
+//	void		*tmp_page;	/*pointer to the mapped page*/
+//	int32_t		fd;
+//} _og_travel_head;
 
 static _og_head *handlers[OG_HANDLER_CNT];
 static uint32_t _mem_page_size = 0;
@@ -60,11 +65,15 @@ int _free_node(_og_head *head, og_node *this);
 og_node *_get_prev_sib(og_node *this);
 int _leave_tree(og_node *this);
 
+int _travel_node(_og_head *head, const og_node *this, int (*func_p)(void *, void *, const og_node *), void *data);
+int _preorder_R(_og_head *head, og_node *this, int (*func)(void *file, void *data, const og_node *node), void *data);
+
 int _load_pageN_wrt(_og_head *head, uint32_t n);
 int _load_pageN_read(_og_head *head, uint32_t n);
 int _load_pageN(_og_head *head, uint32_t n, int iswrt);
 
-void _og_tree_travel(_og_travel_head *th, og_node *node, void (*func_p)(void *), int depth, int end, int root);
+void _og_tree_travel(_og_head *th, og_node *node, void (*func_p)(void *), int depth, int end, int root);
+void _prt_node(_og_head *th, og_pos *pos, void (*func_p)(void *));
 void _prt_one_page(void *page, int node_len, void (*func)(void *));
 
 int og_init(const char *path, int size)
@@ -158,6 +167,9 @@ int og_init(const char *path, int size)
 	head->pageN_read = 0;
 	head->read_page = page_r;
 
+	head->tmp_page = NULL;
+	//head->pageN_tmp = 0;
+
 	strcpy(head->path, path);
 
 	handlers[handler] = head;
@@ -220,7 +232,7 @@ og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *p
 		printf("_get_free_node_w err!!\n");
 		return NULL;
 	}
-	//printf("get the node free (page[%lu], offset[%lu])\n", pos.page, pos.offset);
+	//printf("get the node free (page[%u], offset[%u])\n", pos.page, pos.offset);
 	if(_insert_data(head, data, size, &pos) < 0){
 		return NULL;
 	}
@@ -241,12 +253,12 @@ og_node *og_insert_by_parent(int handler, const void *data, int size, og_node *p
 	}
 
 	if(NULL == parent){
-printf("insert head ok !\n");
+printf("insert head!\n");
 		parent = head->root;
 	}
 	node->pos.page = pos.page;
 	node->pos.offset = pos.offset;
-if(parent == head->root) printf("[Root] ");
+//if(parent == head->root) printf("[Root] ");
 
 	_insert_node(node, parent);
 
@@ -260,18 +272,17 @@ if(parent == head->root) printf("[Root] ");
  */
 int _insert_node(og_node *this, og_node *parent)
 {
-printf("insert node[%p][%lu,%lu] below parent[%p][%lu, %lu]", this, this->pos.page, this->pos.offset, parent, parent->pos.page, parent->pos.offset);
-
+//printf("insert node[%p][%u,%u] below parent[%p][%u, %u]", this, this->pos.page, this->pos.offset, parent, parent->pos.page, parent->pos.offset);
 	this->parent = parent;
 	if(!parent->l_child){
 		parent->l_child = this;
-printf("at left\n");
+//printf("at left\n");
 		return 0;
 	}
 
 	this->r_sib = parent->l_child->r_sib;
 	parent->l_child->r_sib = this;
-printf("at left's right\n");
+//printf("at left's right\n");
 
 	return 0;
 }
@@ -421,7 +432,7 @@ int og_delete_node(int handler, og_node *this)
 {
 	if(!handlers[handler])
 		return -1;
-printf("del pos[%p][%lu,%lu]\n", this, this->pos.page, this->pos.offset);
+printf("del pos[%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
 	_og_head *head = handlers[handler];
 
 	_delete_sub_tree(head, this);
@@ -437,7 +448,7 @@ int _leave_tree(og_node *this)
 {
 	if(!this || !this->parent)
 		return -1;
-printf("leave node [%p][%lu,%lu]\n", this, this->pos.page, this->pos.offset);
+printf("leave node [%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
 	if(this == this->parent->l_child){
 		/*this node is first child*/
 		this->parent->l_child = this->r_sib;
@@ -485,7 +496,7 @@ int _free_node(_og_head *head, og_node *this)
 
 	memset(this, 0x00, sizeof(og_node));
 	free(this);
-//printf("this->pos->off %lu\n", this->pos.offset);
+//printf("this->pos->off %u\n", this->pos.offset);
 
 	return 0;
 }
@@ -568,11 +579,11 @@ int _get_free_node_in_page(char *page, uint32_t len, uint32_t *off)
 //printf("in function %s()\n", __FUNCTION__);
 	uint32_t offset = *off;
 	og_data_node *this = (og_data_node *)(page + offset);
-//printf("start find with offset[%lu]\n", *off);
+//printf("start find with offset[%u]\n", *off);
 
 	while(offset + len <= OG_PAGE_SIZE){
 //if(offset > 4193010)
-//	printf("offset = %lu page_size %lu \n", offset, OG_PAGE_SIZE);
+//	printf("offset = %u page_size %u \n", offset, OG_PAGE_SIZE);
 
 		if(!(this->mask & _OG_INUSE)){
 			this->mask |= _OG_INUSE;
@@ -674,23 +685,27 @@ void og_tree_travel(int handler, void (*func_p)(void *))
 	if(!head)
 		return;
 
-	_og_travel_head thead;
+	//_og_travel_head thead;
+	char *tmp_page;
 
-	if(MAP_FAILED == (thead.tmp_page = _mmap_pageN(head->fd, 0))){
+	if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, 0))){
 		perror("_mmap_pageN()");
 		return;
 	}
-	thead.fd = head->fd;
-	thead.pageN = 0;
-	thead.root = head->root;
-	thead.maxN = head->file_head->page_cnt;
+	//thead.fd = head->fd;
+	head->pageN_tmp = 0;
+	head->tmp_page = tmp_page;
+	//head->file_head->page_cnt;
 
 	//uint32_t len = head->file_head->data_len + sizeof(og_data_node);
 
-	_og_tree_travel(&thead, head->root, func_p, 0, 0, 1);
+	_og_tree_travel(head, head->root, func_p, 0, 0, 1);
+	tmp_page = head->tmp_page;
+	head->tmp_page = NULL;
+	munmap(tmp_page, OG_PAGE_SIZE);
 }
 
-void _og_tree_travel(_og_travel_head *th, og_node *node, void (*func_p)(void *), int depth, int end, int root)
+void _og_tree_travel(_og_head *head, og_node *node, void (*func_p)(void *), int depth, int end, int root)
 {
 	if(!node)
 		return;
@@ -703,30 +718,132 @@ void _og_tree_travel(_og_travel_head *th, og_node *node, void (*func_p)(void *),
 			printf("│   ");
 	}
 	if(!root)
-		_prt_node(th, &node->pos, func_p);
+		_prt_node(head, &node->pos, func_p);
 	else
 		printf("[Root]\n");
-	_og_tree_travel(th, node->l_child, func_p, depth+1, 0, 0);
-	_og_tree_travel(th, node->r_sib, func_p, depth, 0, 0);
+	_og_tree_travel(head, node->l_child, func_p, depth+1, 0, 0);
+	_og_tree_travel(head, node->r_sib, func_p, depth, 0, 0);
 
 	return;
 }
 
-void _prt_node(_og_travel_head *th, og_pos *pos, void (*func_p)(void *))
+/**
+ * preorder travel Recursion
+ * 
+ */
+int og_preorder_R(int handler, int (*node_func)(void *file, void *data, const og_node *node), void *data)
 {
-	if(pos->page >= th->maxN){
+//typedef struct _og_travel_head_t {
+//	og_node		*root;		/*tree_head in memory*/
+//	uint32_t	pageN;	/*now pageN used for write*/
+//	uint32_t	maxN;	/*now pageN used for write*/
+//	void		*tmp_page;	/*pointer to the mapped page*/
+//	int32_t		fd;
+//	//uint32_t	used_size;	/*length already use in file*/
+//} _og_travel_head;
+
+	_og_head *head = handlers[handler];
+	if(!head)
+		return -1;
+
+	char *tmp_page;
+	if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, 0))){
+		perror("_mmap_pageN()");
+		return -1;
+	}
+	head->pageN_tmp = 0;
+	head->tmp_page = tmp_page;
+	//thead.maxN = head->file_head->page_cnt;
+
+	_preorder_R(head, head->root, node_func, data);
+	tmp_page = head->tmp_page;
+	head->tmp_page = NULL;
+	munmap(tmp_page, OG_PAGE_SIZE);
+
+	return 0;
+}
+
+int _preorder_R(_og_head *head, og_node *this, int (*func)(void *file, void *data, const og_node *node), void *data)
+{
+	if(!this){
+		return 0;
+	}
+
+	/*show myself*/
+	if(_travel_node(head, this, func, data) < 0){
+		fprintf(stderr, "return value < 0, stop travel\n");
+		return -1;
+	}
+
+	if(_preorder_R(head, this->l_child, func, data) < 0){
+		fprintf(stderr, "return value < 0, stop travel\n");
+		return -1;
+	}
+
+	return _preorder_R(head, this->r_sib, func, data);
+}
+
+int _travel_node(_og_head *head, const og_node *this, int (*func_p)(void *, void *, const og_node *), void *data)
+{
+	const og_pos *pos = &this->pos;
+	if(pos->page >= head->file_head->page_cnt){
+		return -1;
+	}
+
+	char *tmp_page = head->tmp_page;
+	if(pos->page != head->pageN_tmp){
+		if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, pos->page))){
+			perror("mmap_pageN()");
+			return -1;
+		}
+		munmap(head->tmp_page, OG_PAGE_SIZE);
+		head->pageN_tmp = pos->page;
+		head->tmp_page = tmp_page;
+	}
+
+	return func_p(((og_data_node *)(tmp_page+pos->offset))->data, data, this);
+}
+
+int og_get_node_travel(int handler, const og_node *this, int (*func_p)(void *, void *, const og_node *), void *data)
+{
+	_og_head *head = handlers[handler];
+	/* this function must called when travel */
+	if(!head || !head->tmp_page)
+		return -1;
+
+	return _travel_node(head, this, func_p, data); 
+}
+
+/**
+ * get this node's parent
+ * return	if node is root, return NULL
+ * 
+ */
+og_node *og_parent(const og_node *this)
+{
+	/*this is root node (0_0)~*/
+	if(this->parent && !this->parent->parent){
+		return NULL;
+	}
+
+	return this->parent;
+}
+
+void _prt_node(_og_head *head, og_pos *pos, void (*func_p)(void *))
+{
+	if(pos->page >= head->file_head->page_cnt){
 		return;
 	}
 
-	char *tmp_page = th->tmp_page;
-	if(pos->page != th->pageN){
-		if(MAP_FAILED == (tmp_page = _mmap_pageN(th->fd, pos->page))){
+	char *tmp_page = head->tmp_page;
+	if(pos->page != head->pageN_tmp){
+		if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, pos->page))){
 			perror("mmap_pageN()");
 			return;
 		}
-		munmap(th->tmp_page, OG_PAGE_SIZE);
-		th->pageN = pos->page;
-		th->tmp_page = tmp_page;
+		munmap(head->tmp_page, OG_PAGE_SIZE);
+		head->pageN_tmp = pos->page;
+		head->tmp_page = tmp_page;
 	}
 
 	func_p(((og_data_node *)(tmp_page+pos->offset))->data);
@@ -758,7 +875,6 @@ void _prt_one_page(void *page, int node_len, void (*func)(void *))
 	uint32_t off = 0;
 	og_data_node *this = page;
 	char *tmp = page;
-
 
 	while(off + node_len <= OG_PAGE_SIZE){
 		if(this->mask & _OG_INUSE){
