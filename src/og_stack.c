@@ -61,6 +61,7 @@ int ogs_push(ogs_head *h, void *data)
 	this->data = data;
 
 	_list_add(this, head);
+//printf("push %p\n", data);
 
 	return 0;
 }
@@ -92,8 +93,9 @@ void *ogs_pop(ogs_head *h)
 
 	head->next = this->next;
 	this->next = NULL;
-	free(this);
+	//free(this);
 
+//printf("pop  %p\n", data);
 	return data;
 }
 
@@ -146,4 +148,19 @@ void ogs_destory(ogs_head *h, void (*func)(void *data))
 	free(head);
 	h->head = NULL;
 	free(h);
+}
+
+void ogs_travel(ogs_head *h, void (*func_prt)(void *data))
+{
+	ogs_node *head = h->head;
+
+	if(!head)
+		return;
+
+	ogs_node *this = head->next;
+
+	while(this){
+		(*func_prt)(this->data);
+		this = this->next;
+	}
 }

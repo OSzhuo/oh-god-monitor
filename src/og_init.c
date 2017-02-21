@@ -138,6 +138,18 @@ int _write_new_unit(const char *path, const struct stat *sb, int err, int base, 
 	return 0;
 }
 
+int og_init_over(void)
+{
+	pub_unit->action = ACT_INIT_OK;
+	pub_unit->len = 0;
+
+	while(obuf_write(glb_bd, pub_unit, sizeof(_og_unit) + pub_unit->len, 0, NULL) < 0){
+		//usleep(10);
+	}
+
+	return 0;
+}
+
 _og_unit *_init_unit(int size)
 {
 	if(size <= 0)

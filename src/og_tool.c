@@ -53,14 +53,14 @@ char *strlwr(char *s)
 {
 	char *p = s;
 
-#if DEBUG >= 8
+#if DEBUG >= 9
 	printf("before: %s in func %s()\n", s, __FUNCTION__);
 #endif
 	while(*p){
 		*p = tolower(*p);
 		p++;
 	}
-#if DEBUG >= 8
+#if DEBUG >= 9
 	printf("after: %s in func %s()\n", s, __FUNCTION__);
 #endif
 

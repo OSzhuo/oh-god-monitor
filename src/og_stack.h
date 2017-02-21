@@ -17,5 +17,6 @@ void *ogs_top(ogs_head *h);
 void *ogs_pop(ogs_head *h);
 int ogs_empty(ogs_head *h);
 void ogs_destory(ogs_head *h, void (*func)(void *data));
+void ogs_travel(ogs_head *h, void (*func_prt)(void *data));
 
 #endif

@@ -4,7 +4,7 @@ CC=gcc -Wall
 
 all:$(TARGET)
 
-og_monitor:og_init.o og_watch.o og_ctl.o og_record.o obuf.o og_tool.o og_stack.o
+og_monitor:og_init.o og_watch.o og_ctl.o og_record.o obuf.o og_tool.o og_tree.o og_stack.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
 og_init.o:og_init.c og_init.h
 	$(CC) $(CFLAGS) -c $<

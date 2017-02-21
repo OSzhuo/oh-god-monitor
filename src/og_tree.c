@@ -40,10 +40,10 @@ typedef struct _ogt_head_t {
 //	int32_t		fd;
 //} _ogt_travel_head;
 
-static _ogt_head *handlers[OGT_HANDLER_CNT];
+static _ogt_head *handles[OGT_HANDLER_CNT];
 static uint32_t _mem_page_size = 0;
 
-int _get_next_handler(void);
+int _get_next_handle(void);
 void *_mmap_pageN(int fd, uint32_t n);
 int _load_pageN(_ogt_head *head, uint32_t n, int iswrt);
 int _get_free_node_w(_ogt_head *head, ogt_pos *pos);
@@ -80,9 +80,8 @@ int ogt_init(const char *path, int size)
 {
 	if(strlen(path) > OGT_NAME_MAX || size > OGT_PAGE_SIZE || size < 0)
 		return -1;
-	printf("this \n");
 
-	int handler;
+	int handle;
 	int fd;
 	ogt_head *map;
 	_ogt_head *head;
@@ -90,7 +89,7 @@ int ogt_init(const char *path, int size)
 	void *page_w;
 	void *page_r;
 
-	if((handler = _get_next_handler()) < 0)
+	if((handle = _get_next_handle()) < 0)
 		return -1;
 
 	if((fd = open(path, O_CREAT|O_TRUNC|O_RDWR, 0644)) < 0){
@@ -164,6 +163,7 @@ int ogt_init(const char *path, int size)
 
 	head->pageN_wrt = 0;
 	head->wrt_page = page_w;
+	head->w_free_pos = 0;
 	head->pageN_read = 0;
 	head->read_page = page_r;
 
@@ -172,16 +172,16 @@ int ogt_init(const char *path, int size)
 
 	strcpy(head->path, path);
 
-	handlers[handler] = head;
+	handles[handle] = head;
 
-	return handler;
+	return handle;
 }
 
-int ogt_edit_data(int handler, ogt_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n)
+int ogt_edit_data(int handle, ogt_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n)
 {
-	if(!handlers[handler] || !node || !func)
+	if(!handles[handle] || !node || !func)
 		return -1;
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 
 	return _edit_data(head, node, func, data, n);
 }
@@ -203,29 +203,29 @@ int _edit_data(_ogt_head *head, ogt_node *node, int (*f)(void *o, void *new, siz
  * insert a node by comparsion
  *
 */
-ogt_node *ogt_insert_by_cmp(int handler, const void *data, int size, ogt_node *parent)
+ogt_node *ogt_insert_by_cmp(int handle, const void *data, int size, ogt_node *parent)
 {
 	/*wait...*/
 
-	return 0;
+	return NULL;
 }
 
 /**
  * insert a rightmost node
- * @handler
+ * @handle
  * @data
  * @size
  * @parent
  * return	NULL for failed, success return pointor that point to node
  * 
  */
-//int ogt_insert_by_parent(int handler, const void *data, int size);
-ogt_node *ogt_insert_by_parent(int handler, const void *data, int size, ogt_node *parent)
+//int ogt_insert_by_parent(int handle, const void *data, int size);
+ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node *parent)
 {
-	if(!handlers[handler])
+	if(!handles[handle])
 		return NULL;
 	ogt_pos pos;
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 
 	//_next_free_node_w();
 	if(_get_free_node_w(head, &pos)){
@@ -326,7 +326,7 @@ int _free_data_node(_ogt_head *head, ogt_pos *pos)
  */
 int _insert_data(_ogt_head *head, const void *data, size_t n, ogt_pos *pos)
 {
-//printf("this data %s %d page %u off %u\n", data, n, pos->page, pos->offset);
+printf("this data %s %d page %u off %u\n", data, n, pos->page, pos->offset);
 	if(head->pageN_wrt != pos->page){
 		/*need reload a page*/
 		if(_load_pageN_wrt(head, pos->page)){
@@ -402,14 +402,14 @@ int _get_free_node_append(_ogt_head *head, ogt_pos *pos, int iswrt)
 }
 
 /**
- * move node to @parent, Do Not Check if in the same handler
+ * move node to @parent, Do Not Check if in the same handle
  */
-int ogt_move_node(int handler, ogt_node *this, ogt_node *parent)
+int ogt_move_node(int handle, ogt_node *this, ogt_node *parent)
 {
-	if(!handlers[handler] || !this)
+	if(!handles[handle] || !this)
 		return -1;
 
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 
 	if(NULL == parent){
 printf("move node to root!\n");
@@ -428,12 +428,12 @@ printf("move node to root!\n");
  * Delete a node and all below it
  * 
 */
-int ogt_delete_node(int handler, ogt_node *this)
+int ogt_delete_node(int handle, ogt_node *this)
 {
-	if(!handlers[handler])
+	if(!handles[handle])
 		return -1;
 printf("del pos[%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 
 	_delete_sub_tree(head, this);
 	_free_node(head, this);
@@ -659,14 +659,14 @@ int _load_pageN(_ogt_head *head, uint32_t n, int iswrt)
 	return 0;
 }
 
-void ogt_destory(int handler)
+void ogt_destory(int handle)
 {
-	if(NULL == handlers[handler]){
+	if(NULL == handles[handle]){
 		return ;
 	}
 
-	_ogt_head *head = handlers[handler];
-	handlers[handler] = NULL;
+	_ogt_head *head = handles[handle];
+	handles[handle] = NULL;
 
 	munmap(head->wrt_page, OGT_PAGE_SIZE);
 	munmap(head->read_page, OGT_PAGE_SIZE);
@@ -679,9 +679,9 @@ void ogt_destory(int handler)
 /**
  * 
  */
-void ogt_tree_travel(int handler, void (*func_p)(void *))
+void ogt_tree_travel(int handle, void (*func_p)(void *))
 {
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 	if(!head)
 		return;
 
@@ -731,7 +731,7 @@ void _ogt_tree_travel(_ogt_head *head, ogt_node *node, void (*func_p)(void *), i
  * preorder travel Recursion
  * 
  */
-int ogt_preorder_R(int handler, int (*node_func)(void *file, void *data, const ogt_node *node), void *data)
+int ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data)
 {
 //typedef struct _ogt_travel_head_t {
 //	ogt_node		*root;		/*tree_head in memory*/
@@ -742,7 +742,7 @@ int ogt_preorder_R(int handler, int (*node_func)(void *file, void *data, const o
 //	//uint32_t	used_size;	/*length already use in file*/
 //} _ogt_travel_head;
 
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 	if(!head)
 		return -1;
 
@@ -804,9 +804,9 @@ int _travel_node(_ogt_head *head, const ogt_node *this, int (*func_p)(void *, vo
 	return func_p(((ogt_data_node *)(tmp_page+pos->offset))->data, data, this);
 }
 
-int ogt_get_node_travel(int handler, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data)
+int ogt_get_node_travel(int handle, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data)
 {
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 	/* this function must called when travel */
 	if(!head || !head->tmp_page)
 		return -1;
@@ -849,9 +849,9 @@ void _prt_node(_ogt_head *head, ogt_pos *pos, void (*func_p)(void *))
 	func_p(((ogt_data_node *)(tmp_page+pos->offset))->data);
 }
 
-void ogt_travel(int handler, void (*func_p)(void *))
+void ogt_travel(int handle, void (*func_p)(void *))
 {
-	_ogt_head *head = handlers[handler];
+	_ogt_head *head = handles[handle];
 	char *tmp_page;
 	int max = head->file_head->page_cnt;
 	uint32_t len = head->file_head->data_len + sizeof(ogt_data_node);
@@ -899,16 +899,16 @@ void *_mmap_pageN(int fd, uint32_t n)
 }
 
 /**
- * get next unused handler
- * return 	>=0	the handler
+ * get next unused handle
+ * return 	>=0	the handle
  * 		<0	err
  */
-int _get_next_handler(void)
+int _get_next_handle(void)
 {
 	int i;
 
 	for(i = 0; i < OGT_HANDLER_CNT; i++){
-		if(NULL == handlers[i])
+		if(NULL == handles[i])
 			return i;
 	}
 

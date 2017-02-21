@@ -3,9 +3,6 @@
 
 #include "og_defs.h"
 
-/* max name length(include nul) */
-#define IBIG_NM_MAX		256
-
 /* the length of buf for read watch event */
 #define RD_BUF_LEN		4096
 

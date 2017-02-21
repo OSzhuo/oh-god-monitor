@@ -44,19 +44,22 @@ int og_master(void)
 	if((watch_fd = og_watch_init(bd)) < 0){
 		return -1;
 	}
-	og_record_init(bd);
+	if(og_record_init(bd)){
+		return -1;
+	}
 
-	if(pthread_create(&x, NULL, og_read_unit_from_obuf, NULL))
+	if(pthread_create(&x, NULL, og_record_work, NULL))
 		perror("create()");
 
 	og_init_start();
 
-	char *path = "/ibig/tmp";//"/tmp/mnt/USB-disk-1";
+	char *path = "/ibig/tmp/mnt";//"/tmp/mnt/USB-disk-1";
 	if(og_list_all(watch_fd, path, bd, og_add_watch)){
 		perror("list_all nftw()");
 		exit(1);
 	}
-	og_init_over();
+	//og_init_over();
+
 //printf("list all ok buf size %lu\n", obuf_get_used(glb_bd, NULL));
 
 	//fprintf(stderr, "list_all() err\n");
@@ -67,7 +70,7 @@ int og_master(void)
 
 	//i_listen(fd_watch);
 
-	//pthread_join(x, NULL);
+	pthread_join(x, NULL);
 
 	return 0;
 }

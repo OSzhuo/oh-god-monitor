@@ -1,13 +1,20 @@
 #ifndef _OG_DEFS_H_
 #define _OG_DEFS_H_
+#define free(p)  do {                                                   \
+        printf("%s:%d:%s:free(0x%lx)\n", __FILE__, __LINE__,            \
+            __func__, (unsigned long)p);                                \
+        free(p);                                                        \
+} while (0)
 
-#define	DEBUG			1
+#define	DEBUG			8
 
 #ifdef PATH_MAX
 #define IBIG_PATH_MAX		PATH_MAX
 #else
 #define IBIG_PATH_MAX		4096
 #endif
+/* max name length(include nul) */
+#define IBIG_NM_MAX		256
 
 /*path///name///type///err///mtime///size(in bytes)///_///_*/
 
@@ -20,6 +27,7 @@
 #define ACT_DEL			3
 #define ACT_MV_F		4
 #define ACT_MV_T		5
+#define ACT_INIT_OK		6
 
 /*type will be one of the following value*/
 #define TYPE_D			'D'
@@ -38,9 +46,18 @@ typedef struct _og_unit_t{
 	int	wd;		/* if wd<0, this unit must not be DIR */
 	int16_t	len;		/* the path length() (include '\0') */
 	int16_t	base;		/* base is the offset of the filename (only action is ACT_INIT) */
-	char	path[];		/* file path(include /tmp/mnt/USB-disk-*)		\
-					and must write '\0' between two sring */
+	char	path[];		/* file path(include /tmp/mnt/USB-disk-*) */
 } _og_unit;
+
+typedef struct og_file_unit_st {
+	int8_t	err;		/* if file access err */
+	char	type;		/* file type */
+	int16_t	len;		/* the path length() (include '\0') */
+	off_t	size;		/* total size, in bytes */
+	time_t	mtime;		/* time of last modification */
+	int	wd;		/* if wd<0, this unit must not be DIR */
+	char	name[];		/* file name (include nul('\0')) */
+} og_file_unit;
 
 #define NM_LEN			512
 

@@ -10,5 +10,6 @@
 /*extension name max length (with '\0')*/
 
 int og_list_all(int fd, char *path, int bd, int (*watch_add_func)(int fd, const char *p));
+int og_init_over(void);
 
 #endif

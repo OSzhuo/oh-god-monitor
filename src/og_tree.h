@@ -27,8 +27,8 @@
 #define OGT_NAME_MAX		255
 #define OGT_HANDLER_CNT		8
 /*every page is 32M; the value must be N*4k*/
-//#define OGT_PAGE_SIZE		(4*1024*8*1024UL)
-#define OGT_PAGE_SIZE		(4*1024*1024UL)
+#define OGT_PAGE_SIZE		(4*1024*8*1024UL)
+//#define OGT_PAGE_SIZE		(4*1024*1024UL)
 
 #define OGT_DFT_MEM_PAGE		(4*1024UL)
 
@@ -90,19 +90,19 @@ typedef struct ogt_data_node_t {
 } ogt_data_node;
 
 int ogt_init(const char *path, int size);
-ogt_node *ogt_insert_by_parent(int handler, const void *data, int size, ogt_node *parent);
-//int ogt_delete_by_cmp(int handler, void *data, int size);
-int ogt_delete_node(int handler, ogt_node *this);
-int ogt_edit_data(int handler, ogt_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n);
-int ogt_move_node(int handler, ogt_node *this, ogt_node *parent);
-int ogt_preorder_R(int handler, int (*node_func)(void *file, void *data, const ogt_node *node), void *data);
-int ogt_get_node_travel(int handler, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data);
+ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node *parent);
+//int ogt_delete_by_cmp(int handle, void *data, int size);
+int ogt_delete_node(int handle, ogt_node *this);
+int ogt_edit_data(int handle, ogt_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n);
+int ogt_move_node(int handle, ogt_node *this, ogt_node *parent);
+int ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data);
+int ogt_get_node_travel(int handle, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data);
 
 ogt_node *ogt_parent(const ogt_node *this);
 
-void ogt_tree_travel(int handler, void (*func_p)(void *));
-void ogt_travel(int handler, void (*func_p)(void *));
+void ogt_tree_travel(int handle, void (*func_p)(void *));
+void ogt_travel(int handle, void (*func_p)(void *));
 
-void ogt_destory(int handler);
+void ogt_destory(int handle);
 
 #endif
