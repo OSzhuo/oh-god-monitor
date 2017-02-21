@@ -4,8 +4,19 @@ CC=gcc -Wall
 
 all:$(TARGET)
 
-og_monitor:og_stack.o og_driver.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+og_monitor:og_init.o og_watch.o og_ctl.o og_record.o obuf.o og_tool.o og_stack.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
+og_init.o:og_init.c og_init.h
+	$(CC) $(CFLAGS) -c $<
+og_record.o:og_record.c og_record.h
+	$(CC) $(CFLAGS) -c $<
+og_watch.o:og_watch.c og_watch.h
+	$(CC) $(CFLAGS) -c $<
+og_ctl.o:og_ctl.c
+	$(CC) $(CFLAGS) -c $<
+
+obuf.o:obuf.c obuf.h
+	$(CC) $(CFLAGS) -c $<
 
 og_stack.o:og_stack.c og_stack.h
 	$(CC) $(CFLAGS) -c $<
@@ -13,6 +24,15 @@ og_stack.o:og_stack.c og_stack.h
 og_tree.o:og_tree.c og_tree.h
 	$(CC) $(CFLAGS) -c $<
 
+og_tool.o:og_tool.c og_tool.h
+	$(CC) $(CFLAGS) -c $<
+
+## old
+ibig_monitor:monitor_init.o monitor_watch.o monitor_ctl.c monitor_record.o obuf.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
+monitor_init.o:monitor_init.c monitor_init.h
+	$(CC) $(CFLAGS) -D_GNU_SOURCE -c $<
+
 .PHONY:clean
 clean:
-	rm $(TARGET) *.o
+	-rm -f $(TARGET) *.o

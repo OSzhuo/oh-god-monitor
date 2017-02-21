@@ -8,7 +8,7 @@
 #include "og_stack.h"
 
 int func_edit(void *a, void *b, size_t n);
-int _func(void *data, void *b, const og_node *this);
+int _func(void *data, void *b, const ogt_node *this);
 
 int glb_handler;
 
