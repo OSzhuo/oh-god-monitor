@@ -15,7 +15,7 @@
 
 typedef struct _dir_init_st {
 //	int		wd;		/* if wd<0, this unit must not be DIR */
-	int16_t		len;		/* the path length() (include '\0') */
+	int		len;		/* the path length() (include '\0') */
 	ogt_node	*this;		/* this node's position */
 	char		path[];
 } _dir_init;
@@ -251,7 +251,7 @@ int _push_dir(_og_unit *buf, ogt_node *node)
 	strcpy(this->path, buf->path);
 
 //printf("push dir[%p][%s]\n", this->this, this->path);
-printf("[MALLOC]push dir[%p][%s], size %d, len %d\n", this, this->path,sizeof(_dir_init)+buf->len, buf->len);
+//printf("[MALLOC]push dir[%p][%s], size %d, len %d\n", this, this->path,sizeof(_dir_init)+buf->len, buf->len);
 	if(ogs_push(glb_dir_stack, this) < 0){
 		fprintf(stderr, "push to stack err\n");
 		return -1;
@@ -274,10 +274,9 @@ ogt_node*_get_tree_parent(_og_unit *buf)
 		}
 //printf("want [%s]top dir[%p][%s], strlen %lu len %d\n", buf->path, this, this->path, strlen(this->path), this->len);
 		if(strcmp(buf->path, this->path)){
-			printf("[FREE]this %p pop %p\n", this, ogs_pop(glb_dir_stack));
-//mtrace();
-			free(this);
-			//free(ogs_pop(glb_dir_stack));
+			//printf("[FREE]this %p pop %p\n", this, ogs_pop(glb_dir_stack));
+			//free(this);
+			free(ogs_pop(glb_dir_stack));
 			continue;
 		}
 			break;

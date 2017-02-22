@@ -58,7 +58,7 @@ int og_master(void)
 		perror("list_all nftw()");
 		exit(1);
 	}
-	//og_init_over();
+	og_init_over();
 
 //printf("list all ok buf size %lu\n", obuf_get_used(glb_bd, NULL));
 

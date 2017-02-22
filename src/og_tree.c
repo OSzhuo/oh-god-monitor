@@ -326,7 +326,7 @@ int _free_data_node(_ogt_head *head, ogt_pos *pos)
  */
 int _insert_data(_ogt_head *head, const void *data, size_t n, ogt_pos *pos)
 {
-printf("this data %s %d page %u off %u\n", data, n, pos->page, pos->offset);
+//printf("this data %s %d page %u off %u\n", data, n, pos->page, pos->offset);
 	if(head->pageN_wrt != pos->page){
 		/*need reload a page*/
 		if(_load_pageN_wrt(head, pos->page)){

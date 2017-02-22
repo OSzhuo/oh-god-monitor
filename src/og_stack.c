@@ -93,7 +93,7 @@ void *ogs_pop(ogs_head *h)
 
 	head->next = this->next;
 	this->next = NULL;
-	//free(this);
+	free(this);
 
 //printf("pop  %p\n", data);
 	return data;

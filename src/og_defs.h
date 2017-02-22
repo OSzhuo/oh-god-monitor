@@ -1,10 +1,5 @@
 #ifndef _OG_DEFS_H_
 #define _OG_DEFS_H_
-#define free(p)  do {                                                   \
-        printf("%s:%d:%s:free(0x%lx)\n", __FILE__, __LINE__,            \
-            __func__, (unsigned long)p);                                \
-        free(p);                                                        \
-} while (0)
 
 #define	DEBUG			8
 
@@ -44,18 +39,18 @@ typedef struct _og_unit_t{
 	off_t	size;		/* total size, in bytes */
 	time_t	mtime;		/* time of last modification */
 	int	wd;		/* if wd<0, this unit must not be DIR */
-	int16_t	len;		/* the path length() (include '\0') */
-	int16_t	base;		/* base is the offset of the filename (only action is ACT_INIT) */
+	int	len;		/* the path length() (include '\0') */
+	int	base;		/* base is the offset of the filename (only action is ACT_INIT) */
 	char	path[];		/* file path(include /tmp/mnt/USB-disk-*) */
 } _og_unit;
 
 typedef struct og_file_unit_st {
 	int8_t	err;		/* if file access err */
 	char	type;		/* file type */
-	int16_t	len;		/* the path length() (include '\0') */
 	off_t	size;		/* total size, in bytes */
 	time_t	mtime;		/* time of last modification */
 	int	wd;		/* if wd<0, this unit must not be DIR */
+	int	len;		/* the path length() (include '\0') */
 	char	name[];		/* file name (include nul('\0')) */
 } og_file_unit;
 
