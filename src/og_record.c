@@ -44,6 +44,8 @@ ogt_node*_get_tree_parent(_og_unit *buf);
 int _file_init(_og_unit *buf);
 int _read_obuf(int bd, void *buf, size_t count);
 void *_init_file_unit(void);
+void _prt_unit(void *data, void *node);
+int _travel_(void *data);
 
 /*if file exsit, will trunc!!!*/
 int og_record_init(int bd)
@@ -160,6 +162,7 @@ int _process_unit(_og_unit *buf)
 		printf("[INIT OVER] start destory directory stack\n");
 #endif
 		_init_over();
+ogt_tree_travel(glb_ogt_handle, _travel_);
 		break;
 	default:
 		printf("Unknown action!\n");
@@ -200,8 +203,17 @@ int _process_unit(_og_unit *buf)
  */
 int _file_init(_og_unit *buf)
 {
+#if DEBUG >=9
+	//printf("%s, this path %s \n", __FUNCTION__, buf->path);
 	buf->path[buf->base-1] = '\0';
+	if(TYPE_D == buf->type){
+		printf("TRAVEL STACK=======\n");
+		ogs_travel(glb_dir_stack, _prt_unit);
+		printf("===================\n");
+	}
+#endif
 
+	buf->path[buf->base-1] = '\0';
 	ogt_node *this;
 	ogt_node *parent = _get_tree_parent(buf);
 
@@ -211,19 +223,23 @@ int _file_init(_og_unit *buf)
 	pub_data->mtime	= buf->mtime;
 	pub_data->wd	= buf->wd;
 
+	buf->path[buf->base-1] = '/';
 	/* if there no data in dir_stack */
 	if(!parent){
 		pub_data->len	= buf->len;
 		strcpy(pub_data->name, buf->path);
+		//pub_data->name[buf->base-1] = '\0';
 	}else{
 		pub_data->len	= buf->len - buf->base;
 		strcpy(pub_data->name, buf->path + buf->base);
 	}
+//printf("[%s][%c] st_size[%8ld] mtime[%ld] name[%s]\n", __FUNCTION__, pub_data->type, pub_data->size, pub_data->mtime, pub_data->name);
 
 	if(!(this = ogt_insert_by_parent(glb_ogt_handle, pub_data, offsetof(og_file_unit, name)+pub_data->len, parent))){
 		fprintf(stderr, "insert node err.\n");
 		return -1;
 	}
+//printf("[%s]insert node [%p][%u,%u]\n", __FILE__, this, this->pos.page, this->pos.offset);
 
 	if(TYPE_D == buf->type){
 		if(_push_dir(buf, this) < 0)
@@ -241,7 +257,7 @@ int _push_dir(_og_unit *buf, ogt_node *node)
 	buf->path[buf->base-1] = '/';
 	_dir_init *this;
 
-	if(!(this = malloc(sizeof(_dir_init)+buf->len))){
+	if(!(this = malloc(offsetof(_dir_init, path)+buf->len))){
 		perror("malloc()");
 		return -1;
 	}
@@ -256,6 +272,15 @@ int _push_dir(_og_unit *buf, ogt_node *node)
 		fprintf(stderr, "push to stack err\n");
 		return -1;
 	}
+
+	return 0;
+}
+
+int _travel_(void *data)
+{
+	og_file_unit *d = data;
+
+	printf("[%c]name: %-32s\n", d->type, d->name);
 
 	return 0;
 }
@@ -301,9 +326,9 @@ void *_init_file_unit(void)
 
 int read_one_unit(int bd, _og_unit *buf)
 {
-	_read_obuf(bd, buf, sizeof(_og_unit));
+	_read_obuf(bd, buf, offsetof(_og_unit, path));
 	_read_obuf(bd, buf->path, buf->len);
-	//printf("[%c] st_size[%8ld] mtime[%ld] path[%s]\n", buf->type, buf->size, buf->mtime, buf->path);
+	//printf("[%s][%c] st_size[%8ld] mtime[%ld] path[%s]\n", __FUNCTION__, buf->type, buf->size, buf->mtime, buf->path);
 
 	return 0;
 }
@@ -317,10 +342,15 @@ int _read_obuf(int bd, void *buf, size_t count)
 	return count;
 }
 
-//void _prt_unit(void *data)
-//{
-//	_og_unit *unit;
-//}
+void _prt_unit(void *data, void *node)
+{
+        _dir_init *this = data;
+
+        if(!data)
+                printf("{%p ++%p++}\n", this, node);
+        else
+                printf("{%p ++%p++ %d %s}\n", this, node, this->len, this->path);
+}
 
 int _wlist_init(_watch_list_node **head)
 {

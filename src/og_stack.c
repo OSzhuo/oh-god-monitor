@@ -150,7 +150,7 @@ void ogs_destory(ogs_head *h, void (*func)(void *data))
 	free(h);
 }
 
-void ogs_travel(ogs_head *h, void (*func_prt)(void *data))
+void ogs_travel(ogs_head *h, void (*func_prt)(void *data, void *node))
 {
 	ogs_node *head = h->head;
 
@@ -159,8 +159,9 @@ void ogs_travel(ogs_head *h, void (*func_prt)(void *data))
 
 	ogs_node *this = head->next;
 
+	(*func_prt)(head->data, head);
 	while(this){
-		(*func_prt)(this->data);
+		(*func_prt)(this->data, this);
 		this = this->next;
 	}
 }

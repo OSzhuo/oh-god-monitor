@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ftw.h>
+#include <stddef.h>
 
 #include "og_init.h"
 #include "og_tool.h"
@@ -129,7 +130,7 @@ int _write_new_unit(const char *path, const struct stat *sb, int err, int base, 
 
 	//printf("[%c] st_size[%8ld] mtime[%ld] path[%s]\n", pub_unit->type, pub_unit->size, pub_unit->mtime, pub_unit->path);
 
-	while(obuf_write(glb_bd, pub_unit, sizeof(_og_unit) + pub_unit->len, 0, NULL) < 0){
+	while(obuf_write(glb_bd, pub_unit, offsetof(_og_unit, path) + pub_unit->len, 0, NULL) < 0){
 		printf("buffer went full, wait and again \n");
 //		//printf("size = %d\n",sizeof(struct list_line_t) + glb_line->len);
 		usleep(10);
