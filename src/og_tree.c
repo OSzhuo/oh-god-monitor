@@ -6,6 +6,14 @@
 #include <string.h>
 #include <stddef.h>
 
+#include "og_tree.h"
+
+/*for debug*/
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+
+#if DEBUG > 8
 typedef struct og_file_unit_st {
 	int8_t	err;		/* if file access err */
 	char	type;		/* file type */
@@ -15,13 +23,8 @@ typedef struct og_file_unit_st {
 	int	len;		/* the path length() (include '\0') */
 	char	name[];		/* file name (include nul('\0')) */
 } og_file_unit;
+#endif
 
-#include "og_tree.h"
-
-/*for debug*/
-#include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
 
 /*this _ogt_head is used for in memory*/
 typedef struct _ogt_head_t {
@@ -232,17 +235,6 @@ ogt_node *ogt_insert_by_cmp(int handle, const void *data, int size, ogt_node *pa
 //int ogt_insert_by_parent(int handle, const void *data, int size);
 ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node *parent)
 {
-//typedef struct og_file_unit_st {
-//	int8_t	err;		/* if file access err */
-//	char	type;		/* file type */
-//	off_t	size;		/* total size, in bytes */
-//	time_t	mtime;		/* time of last modification */
-//	int	wd;		/* if wd<0, this unit must not be DIR */
-//	int	len;		/* the path length() (include '\0') */
-//	char	name[];		/* file name (include nul('\0')) */
-//} og_file_unit;
-//og_file_unit *pub_data = data;
-//	printf("[%s][%c] st_size[%8ld] mtime[%ld] name[%s]\n", __FUNCTION__, pub_data->type, pub_data->size, pub_data->mtime, pub_data->name);
 	if(!handles[handle])
 		return NULL;
 	ogt_pos pos;
@@ -279,11 +271,10 @@ printf("insert root!\n");
 	}
 	node->pos.page = pos.page;
 	node->pos.offset = pos.offset;
-//if(parent == head->root) printf("[Root] ");
-	printf("[%s]insert node[%s]", __FILE__, ((struct og_file_unit_st *)data)->name);
+//	printf("[%s]insert node[%s]", __FILE__, ((struct og_file_unit_st *)data)->name);
 
 	_insert_node(node, parent);
-printf("[%s]AFTER[%p][%p,%p]\n", __FUNCTION__, node, node->l_child, node->r_sib);
+//printf("[%s]AFTER[%p][%p,%p]\n", __FUNCTION__, node, node->l_child, node->r_sib);
 
 	return node;
 }
@@ -295,17 +286,17 @@ printf("[%s]AFTER[%p][%p,%p]\n", __FUNCTION__, node, node->l_child, node->r_sib)
  */
 int _insert_node(ogt_node *this, ogt_node *parent)
 {
-printf("[%p][%u,%u] below parent[%p][%u, %u]", this, this->pos.page, this->pos.offset, parent, parent->pos.page, parent->pos.offset);
+//printf("[%p][%u,%u] below parent[%p][%u, %u]", this, this->pos.page, this->pos.offset, parent, parent->pos.page, parent->pos.offset);
 	this->parent = parent;
 	if(!parent->l_child){
 		parent->l_child = this;
-printf("at left\n");
+//printf("at left\n");
 		return 0;
 	}
 
 	this->r_sib = parent->l_child->r_sib;
 	parent->l_child->r_sib = this;
-printf("at left's right\n");
+//printf("at left's right\n");
 
 	return 0;
 }
@@ -455,7 +446,7 @@ int ogt_delete_node(int handle, ogt_node *this)
 {
 	if(!handles[handle])
 		return -1;
-printf("del pos[%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
+//printf("del pos[%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
 	_ogt_head *head = handles[handle];
 
 	_delete_sub_tree(head, this);
@@ -471,7 +462,7 @@ int _leave_tree(ogt_node *this)
 {
 	if(!this || !this->parent)
 		return -1;
-printf("leave node [%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
+//printf("leave node [%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
 	if(this == this->parent->l_child){
 		/*this node is first child*/
 		this->parent->l_child = this->r_sib;
@@ -740,7 +731,7 @@ void _ogt_tree_travel(_ogt_head *head, ogt_node *node, void (*func_p)(void *), i
 		else
 			printf("│   ");
 	}
-printf("[%p][%p,%p]", node, node->l_child, node->r_sib);
+//printf("[%p][%p,%p]", node, node->l_child, node->r_sib);
 	if(!root){
 		_prt_node(head, &node->pos, func_p);
 	}
@@ -857,7 +848,7 @@ ogt_node *ogt_parent(const ogt_node *this)
 void _prt_node(_ogt_head *head, ogt_pos *pos, void (*func_p)(void *))
 {
 //printf("pos[%u, %u]");
-printf("[%u,%u]", pos->page, pos->offset);
+//printf("[%u,%u]", pos->page, pos->offset);
 	if(pos->page >= head->file_head->page_cnt){
 		printf("this err\n");
 		return;

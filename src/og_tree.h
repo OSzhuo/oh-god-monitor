@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define DEBUG		0
+
 /**
  * operator the tree(storage in file)
  * author:      Mr.OS <zhuohongchao@chunhongtech.com>
