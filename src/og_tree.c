@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#if DEBUG > 8
+#if OGT_DEBUG > 8
 typedef struct og_file_unit_st {
 	int8_t	err;		/* if file access err */
 	char	type;		/* file type */

@@ -15,7 +15,7 @@
 #define PID_PATH		"/tmp/ibig_monitor.pid"
 
 // * @bd	obuf descriptor
-int glb_bd = -1;
+//int glb_bd = -1;
 
 void *read_from_buf(void *bd);
 int init_buf(int size);
@@ -60,7 +60,8 @@ int og_master(void)
 	}
 	og_init_over();
 
-//printf("list all ok buf size %lu\n", obuf_get_used(glb_bd, NULL));
+//printf("list all ok buf size %lu\n", obuf_get_used(bd, NULL));
+og_watch_listen_cycle(watch_fd);
 
 	//fprintf(stderr, "list_all() err\n");
 

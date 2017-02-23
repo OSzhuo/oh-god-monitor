@@ -124,9 +124,10 @@ int _write_new_unit(const char *path, const struct stat *sb, int err, int base, 
 	strcpy(pub_unit->path, path);
 	pub_unit->len = strlen(path) + 1;
 	pub_unit->size = dir ? 0 : sb->st_size;
-	pub_unit->base = base;
+	pub_unit->base_or_selfwd = base;
 	pub_unit->type = dir ? TYPE_D : get_type(path+base);
 	pub_unit->mtime = sb->st_mtime;
+	pub_unit->wd = wd;
 
 	//printf("[%c] st_size[%8ld] mtime[%ld] path[%s]\n", pub_unit->type, pub_unit->size, pub_unit->mtime, pub_unit->path);
 
@@ -144,7 +145,7 @@ int og_init_over(void)
 	pub_unit->action = ACT_INIT_OK;
 	pub_unit->len = 0;
 
-	while(obuf_write(glb_bd, pub_unit, sizeof(_og_unit) + pub_unit->len, 0, NULL) < 0){
+	while(obuf_write(glb_bd, pub_unit, offsetof(_og_unit, path) + pub_unit->len, 0, NULL) < 0){
 		//usleep(10);
 	}
 

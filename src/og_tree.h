@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define DEBUG		0
+#define OGT_DEBUG		0
 
 /**
  * operator the tree(storage in file)

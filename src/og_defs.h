@@ -22,7 +22,9 @@
 #define ACT_DEL			3
 #define ACT_MV_F		4
 #define ACT_MV_T		5
-#define ACT_INIT_OK		6
+#define ACT_MODIFY		6
+
+#define ACT_INIT_OK		9
 
 /*type will be one of the following value*/
 #define TYPE_D			'D'
@@ -32,15 +34,20 @@
 #define TYPE_T			'T'
 #define TYPE_O			'O'
 
+/* if use readdir() instead of nftw(), these field may be remove, all status of file/dir read by og_record(or all by og_init/og_watch) */
+/* like size, mtime, err, type... */
 typedef struct _og_unit_t{
-	int8_t	action;		/* action  only dir will get MOVE event */
+	int8_t	action;		/* action */
 	int8_t	err;		/* if file access err */
 	char	type;		/* file type */
 	off_t	size;		/* total size, in bytes */
 	time_t	mtime;		/* time of last modification */
-	int	wd;		/* if wd<0, this unit must not be DIR */
+	int	wd;		/* if wd<0, this unit must not DIR			\
+					in ACT_INIT, wd means self			\
+					in other ACT, wd means parent's wd	*/
+	int	base_or_selfwd;	/* only in ACT_INIT base is the offset of the filename	\
+					in other action, it is itself's wd */
 	int	len;		/* the path length() (include '\0') */
-	int	base;		/* base is the offset of the filename (only action is ACT_INIT) */
 	char	path[];		/* file path(include /tmp/mnt/USB-disk-*) */
 } _og_unit;
 

@@ -11,9 +11,10 @@
  */
 #define IBIG_EVENT_WATCH        (IN_EXCL_UNLINK | IN_DONT_FOLLOW        \
 				| IN_MOVED_FROM | IN_MOVED_TO           \
-				| IN_CREATE | IN_DELETE)
+				| IN_CREATE | IN_DELETE | IN_MODIFY)
 
 int og_watch_init(int bd);
 int og_add_watch(int watch_fd, const char *path);
+int og_watch_listen_cycle(int watch_fd);
 
 #endif
