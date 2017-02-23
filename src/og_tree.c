@@ -262,6 +262,7 @@ ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node 
 		perror("malloc()");
 		return NULL;
 	}
+	node->l_child = node->r_sib = NULL;
 
 	if(parent && !parent->parent){
 		/*--- ToDo ---*/
@@ -282,6 +283,7 @@ printf("insert root!\n");
 	printf("[%s]insert node[%s]", __FILE__, ((struct og_file_unit_st *)data)->name);
 
 	_insert_node(node, parent);
+printf("[%s]AFTER[%p][%p,%p]\n", __FUNCTION__, node, node->l_child, node->r_sib);
 
 	return node;
 }
@@ -738,7 +740,7 @@ void _ogt_tree_travel(_ogt_head *head, ogt_node *node, void (*func_p)(void *), i
 		else
 			printf("│   ");
 	}
-printf("[%p]", node);
+printf("[%p][%p,%p]", node, node->l_child, node->r_sib);
 	if(!root){
 		_prt_node(head, &node->pos, func_p);
 	}

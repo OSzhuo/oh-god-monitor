@@ -302,6 +302,7 @@ ogt_node*_get_tree_parent(_og_unit *buf)
 			//printf("[FREE]this %p pop %p\n", this, ogs_pop(glb_dir_stack));
 			//free(this);
 			free(ogs_pop(glb_dir_stack));
+			//ogs_pop(glb_dir_stack);
 			continue;
 		}
 			break;
