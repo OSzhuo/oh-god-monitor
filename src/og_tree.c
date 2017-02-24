@@ -28,9 +28,9 @@ typedef struct og_file_unit_st {
 
 /*this _ogt_head is used for in memory*/
 typedef struct _ogt_head_t {
-	ogt_head		*file_head;	/*file head mapped into memory*/
+	ogt_head	*file_head;	/*file head mapped into memory*/
 	/* =*= NOTE: root can not return by any function,and root->parent and root->right_sibling always NULL =*= */
-	ogt_node		*root;		/*tree_head in memory*/
+	ogt_node	*root;		/*tree_head in memory*/
 	uint32_t	pageN_wrt;	/*now pageN used for write*/
 	uint32_t	w_free_pos;
 	uint32_t	pageN_read;	/*now pageN used for read*/
@@ -69,6 +69,9 @@ int _insert_data(_ogt_head *head, const void *data, size_t n, ogt_pos *pos);
 int _insert_node(ogt_node *this, ogt_node *parent);
 
 int _edit_data(_ogt_head *head, ogt_node *node, int (*f)(void *o, void *n, size_t size), void *data, size_t n);
+
+ogt_node *_get_node_by_left(_ogt_head *head, ogt_node *left, int (*func)(void *, void *), void *data);
+int _get_node_cmp(_ogt_head *head, ogt_pos *pos, int (*func)(void *, void *), void *data);
 
 int _delete_sub_tree(_ogt_head *head, ogt_node *this);
 void _free_left_node(_ogt_head *head, ogt_node *this);
@@ -481,6 +484,61 @@ int _leave_tree(ogt_node *this)
 }
 
 /**
+ * for func:	return 0 means stop and return this node
+ * 		return others means continue
+ */
+ogt_node *ogt_get_node_by_parent(int handle, ogt_node *parent, int (*func)(void *, void *), void *data)
+{
+	if(!parent || !handles[handle])
+		return NULL;
+
+	_ogt_head *head = handles[handle];
+//printf("[%s][%p][%p][%p]\n", __FUNCTION__, parent, parent->l_child, parent->r_sib);
+
+	//if(!parent->l_child){
+	//	return NULL;
+	//}
+
+	return _get_node_by_left(head, parent->l_child, func, data);
+}
+
+/**
+ * get node by compare function, from parent's left to the right most node
+ * 
+ */
+ogt_node *_get_node_by_left(_ogt_head *head, ogt_node *left, int (*func)(void *, void *), void *data)
+{
+	if(!left)
+		return NULL;
+	ogt_node *this = left;
+
+
+	while(_get_node_cmp(head, &this->pos, func, data)){
+		this = this->r_sib;
+		if(!this)
+			return NULL;
+	}
+
+	return this;
+}
+
+/**
+ * return function return value
+ */
+int _get_node_cmp(_ogt_head *head, ogt_pos *pos, int (*func)(void *, void *), void *data)
+{
+	if(pos->page >= head->file_head->page_cnt){
+		return -1;
+	}
+
+	if(pos->page != head->pageN_read && _load_pageN_read(head, pos->page) < 0){
+		return -1;
+	}
+
+	return (*func)(((ogt_data_node *)(head->read_page+pos->offset))->data, data);
+}
+
+/**
  * Do Not Check if this is the first child !!
  * 
 */
@@ -551,7 +609,6 @@ void _free_left_node(_ogt_head *head, ogt_node *this)
 	_free_data_node(head, &tmp->pos);
 	memset(tmp, 0x00, sizeof(ogt_node));
 	free(tmp);
-
 }
 
 /**
@@ -832,7 +889,9 @@ int ogt_get_node_travel(int handle, const ogt_node *this, int (*func_p)(void *, 
 
 /**
  * get this node's parent
- * return	if node is root, return NULL
+ * === WARNING ===
+	Do Not Check this is in mem_node list
+ * return	if @this is root, return NULL
  * 
  */
 ogt_node *ogt_parent(const ogt_node *this)

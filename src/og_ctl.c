@@ -44,7 +44,7 @@ int og_master(void)
 	if((watch_fd = og_watch_init(bd)) < 0){
 		return -1;
 	}
-	if(og_record_init(bd)){
+	if(og_record_init(bd, watch_fd)){
 		return -1;
 	}
 

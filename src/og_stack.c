@@ -10,7 +10,7 @@ static inline void _list_add(ogs_node *new, ogs_node *head);
 
 static inline int _ogs_empty(ogs_node *head);
 
-ogs_head *ogs_init()
+ogs_head *ogs_init(void)
 {
 	ogs_head *head;
 	ogs_node *node;

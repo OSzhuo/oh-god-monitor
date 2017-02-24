@@ -48,7 +48,7 @@ typedef struct _og_unit_t{
 	int	base_or_selfwd;	/* only in ACT_INIT base is the offset of the filename	\
 					in other action, it is itself's wd */
 	int	len;		/* the path length() (include '\0') */
-	char	path[];		/* file path(include /tmp/mnt/USB-disk-*) */
+	char	path[0];		/* file path(include /tmp/mnt/USB-disk-*) */
 } _og_unit;
 
 typedef struct og_file_unit_st {
@@ -58,7 +58,7 @@ typedef struct og_file_unit_st {
 	time_t	mtime;		/* time of last modification */
 	int	wd;		/* if wd<0, this unit must not be DIR */
 	int	len;		/* the path length() (include '\0') */
-	char	name[];		/* file name (include nul('\0')) */
+	char	name[0];		/* file name (include nul('\0')) */
 } og_file_unit;
 
 #define NM_LEN			512

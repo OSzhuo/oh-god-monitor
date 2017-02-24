@@ -97,6 +97,8 @@ ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node 
 int ogt_delete_node(int handle, ogt_node *this);
 int ogt_edit_data(int handle, ogt_node *node, int (*func)(void *old, void *new, size_t n), void *data, size_t n);
 int ogt_move_node(int handle, ogt_node *this, ogt_node *parent);
+ogt_node *ogt_get_node_by_parent(int handle, ogt_node *parent, int (*func)(void *, void *), void *data);
+
 int ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data);
 int ogt_get_node_travel(int handle, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data);
 

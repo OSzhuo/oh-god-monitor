@@ -5,7 +5,7 @@
 
 #define OG_TREE_FILE	"/ibig/ibig_monitor/tree.st"
 
-int og_record_init(int bd);
+int og_record_init(int bd, int fd);
 int og_init_start(void);
 
 /**
