@@ -1,7 +1,9 @@
 #ifndef _OG_DEFS_H_
 #define _OG_DEFS_H_
 
-#define	DEBUG			8
+#include <stdint.h>
+
+#define	DEBUG			7
 
 #ifdef PATH_MAX
 #define IBIG_PATH_MAX		PATH_MAX
@@ -28,6 +30,8 @@
 
 /*type will be one of the following value*/
 #define TYPE_D			'D'
+
+#define TYPE_F			'F'
 #define TYPE_A			'A'
 #define TYPE_P			'P'
 #define TYPE_V			'V'
@@ -37,18 +41,20 @@
 /* if use readdir() instead of nftw(), these field may be remove, all status of file/dir read by og_record(or all by og_init/og_watch) */
 /* like size, mtime, err, type... */
 typedef struct _og_unit_t{
-	int8_t	action;		/* action */
-	int8_t	err;		/* if file access err */
-	char	type;		/* file type */
-	off_t	size;		/* total size, in bytes */
-	time_t	mtime;		/* time of last modification */
-	int	wd;		/* if wd<0, this unit must not DIR			\
+	int8_t		action;		/* action */
+	int8_t		err;		/* if file access err */
+	char		type;		/* file type */
+	off_t		size;		/* total size, in bytes */
+	time_t		mtime;		/* time of last modification */
+	int		wd;		/* if wd<0, this unit must not DIR		\
 					in ACT_INIT, wd means self			\
 					in other ACT, wd means parent's wd	*/
-	int	base_or_selfwd;	/* only in ACT_INIT base is the offset of the filename	\
+	uint32_t	base_or_cookie;	/* only ACT_INIT base is the offset of filename	\
+					in ACT_MV_F/T, it is the cookie */
+/*	int	base_or_selfwd;	only in ACT_INIT base is the offset of the filename	\
 					in other action, it is itself's wd */
-	int	len;		/* the path length() (include '\0') */
-	char	path[0];		/* file path(include /tmp/mnt/USB-disk-*) */
+	int		len;		/* the path length() (include '\0') */
+	char		path[0];	/* file path(include /tmp/mnt/USB-disk-*) */
 } _og_unit;
 
 typedef struct og_file_unit_st {
@@ -58,7 +64,7 @@ typedef struct og_file_unit_st {
 	time_t	mtime;		/* time of last modification */
 	int	wd;		/* if wd<0, this unit must not be DIR */
 	int	len;		/* the path length() (include '\0') */
-	char	name[0];		/* file name (include nul('\0')) */
+	char	name[0];	/* file name (include nul('\0')) */
 } og_file_unit;
 
 #define NM_LEN			512

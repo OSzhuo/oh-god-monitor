@@ -269,7 +269,7 @@ ogt_node *ogt_insert_by_parent(int handle, const void *data, int size, ogt_node 
 	}
 
 	if(NULL == parent){
-printf("insert root!\n");
+//printf("insert root!\n");
 		parent = head->root;
 	}
 	node->pos.page = pos.page;

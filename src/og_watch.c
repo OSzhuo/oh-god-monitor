@@ -98,7 +98,7 @@ int _monitor_worker(char *buf, int cnt)
 {
 	int wrt = 0;
 	struct inotify_event *p = (struct inotify_event *)buf;
-#if DEBUG > 7
+#if DEBUG > 8
 	printf("want work %d bytes;\n", cnt);
 #endif
 	while(wrt < cnt){
@@ -109,7 +109,7 @@ int _monitor_worker(char *buf, int cnt)
 		wrt += sizeof(struct inotify_event) + p->len;
 		p = (struct inotify_event *)(buf + wrt);
 	}
-#if DEBUG > 7
+#if DEBUG > 8
 	printf("already work %d bytes;\n", wrt);
 #endif
 
@@ -125,7 +125,7 @@ int _process_watch_events(const struct inotify_event *evt)
 	//char path[IBIG_PATH_MAX] = {};
 	int dir = 0;
 
-#if DEBUG > 6
+#if DEBUG > 7
 	printf("\tp[%s], event:%08x, parent dir is list[%d] cookie[%d] len[%d] strlen[%lu] size[%lu]\n", evt->name, evt->mask, evt->wd, evt->cookie, evt->len, strlen(evt->name), sizeof(struct inotify_event));
 #endif
 /* if get IN_IGNORED, the wd has already been deleted */
@@ -176,7 +176,8 @@ int _i_get_modify(const struct inotify_event *evt, _og_unit *buf, int dir, int e
 	buf->wd = evt->wd;
 	buf->path[0] = '\0';
 	strncat(buf->path, evt->name, evt->len);
-	buf->type = dir ? TYPE_D : get_type(evt->name);
+	/* decrease time to get type when file get modified */
+	buf->type = dir ? TYPE_D : TYPE_F;
 	buf->len = strlen(buf->path) + 1;
 
 	_wrt_unit(buf);
@@ -188,13 +189,14 @@ int _i_get_move(const struct inotify_event *evt, _og_unit *buf, int dir, int err
 {
 	buf->action = from ? ACT_MV_F : ACT_MV_T;
 	buf->err = err;
-	//buf->base_or_pwd = evt->wd;
+	buf->base_or_cookie = evt->cookie;
+//printf("cookie[%lu VS %lu]\n", evt->cookie, buf->base_or_cookie);
 	//buf->size = dir ? 0 : sb->st_size;
 	//buf->mtime = sb->st_mtime;
 	buf->wd = evt->wd;
 	buf->path[0] = '\0';
 	strncat(buf->path, evt->name, evt->len);
-	buf->type = dir ? TYPE_D : get_type(evt->name);
+	//buf->type = dir ? TYPE_D : get_type(evt->name);
 	buf->len = strlen(buf->path) + 1;
 
 	_wrt_unit(buf);
@@ -228,10 +230,10 @@ int _i_get_delete(const struct inotify_event *evt, _og_unit *buf, int dir, int e
  */
 int _i_get_create(const struct inotify_event *evt, _og_unit *buf, int dir, int err)
 {
-printf("in function[%s]\n", __FUNCTION__);
+//printf("in function[%s]\n", __FUNCTION__);
 	buf->action = ACT_NEW;
 	buf->err = err;
-	buf->base_or_selfwd = dir ? 0 : -1;
+	//buf->base_or_cookie = 0;
 	buf->size = 0;
 	buf->mtime = 0;
 	//buf->size = dir ? 0 : sb->st_size;
@@ -250,8 +252,10 @@ printf("in function[%s]\n", __FUNCTION__);
 
 int _wrt_unit(_og_unit *buf)
 {
-printf("in function[%s]\n", __FUNCTION__);
-printf("write path[%s],action[%d],wd[%d],write[%lu]\n", buf->path, buf->action, buf->wd, offsetof(_og_unit, path) + buf->len);
+#if DEBUG > 8
+	printf("in function[%s] ", __FUNCTION__);
+	printf("write path[%s],action[%d],wd[%d],write[%lu]\n", buf->path, buf->action, buf->wd, offsetof(_og_unit, path) + buf->len);
+#endif
 	while(obuf_write(glb_bd, buf, offsetof(_og_unit, path) + buf->len, 0, NULL) < 0){
 #if DEBUG > 9
 		printf("buffer went full, wait and again\n");

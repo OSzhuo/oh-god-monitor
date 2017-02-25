@@ -5,6 +5,8 @@
 
 #define OG_TREE_FILE	"/ibig/ibig_monitor/tree.st"
 
+#define _TMP_MOVE_CNT	10
+
 int og_record_init(int bd, int fd);
 int og_init_start(void);
 

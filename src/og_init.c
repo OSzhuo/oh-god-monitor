@@ -124,7 +124,7 @@ int _write_new_unit(const char *path, const struct stat *sb, int err, int base, 
 	strcpy(pub_unit->path, path);
 	pub_unit->len = strlen(path) + 1;
 	pub_unit->size = dir ? 0 : sb->st_size;
-	pub_unit->base_or_selfwd = base;
+	pub_unit->base_or_cookie = base;
 	pub_unit->type = dir ? TYPE_D : get_type(path+base);
 	pub_unit->mtime = sb->st_mtime;
 	pub_unit->wd = wd;
