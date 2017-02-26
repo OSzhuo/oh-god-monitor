@@ -802,7 +802,8 @@ void _ogt_tree_travel(_ogt_head *head, ogt_node *node, void (*func_p)(void *), i
 
 /**
  * preorder travel Recursion
- * 
+ * ========= TODO =========
+ * add a variable to tell function if is deeper or out ??
  */
 int ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data)
 {
@@ -859,7 +860,11 @@ int _preorder_R(_ogt_head *head, ogt_node *this, int (*func)(void *file, void *d
 int _travel_node(_ogt_head *head, const ogt_node *this, int (*func_p)(void *, void *, const ogt_node *), void *data)
 {
 	const ogt_pos *pos = &this->pos;
+/* do not show root node */
+	if(head->root == this)
+		return 0;
 	if(pos->page >= head->file_head->page_cnt){
+//printf("this err pos[%d,%u]??\n", pos->page, pos->offset);
 		return -1;
 	}
 
@@ -929,6 +934,9 @@ void _prt_node(_ogt_head *head, ogt_pos *pos, void (*func_p)(void *))
 	func_p(((ogt_data_node *)(tmp_page+pos->offset))->data);
 }
 
+/**
+ * travel tree, by page
+ */
 void ogt_travel(int handle, void (*func_p)(void *))
 {
 	_ogt_head *head = handles[handle];

@@ -48,12 +48,19 @@ int og_master(void)
 		return -1;
 	}
 
-	if(pthread_create(&x, NULL, og_record_work, NULL))
-		perror("create()");
+	if(pthread_create(&x, NULL, og_record_work, NULL)){
+		perror("pthread_create()");
+		return -1;
+	}
 
 	og_init_start();
+	og_server_init(OG_SOCK_FILE);
+	if(pthread_create(&x, NULL, og_server_work, NULL)){
+		perror("pthread_create()");
+		return -1;
+	}
 
-	char *path = "/ibig/tmp/mnt";//"/tmp/mnt/USB-disk-1";
+	char *path = "/ibig/tmp/mnt/USB-disk-1";//"/tmp/mnt/USB-disk-1";
 	if(og_list_all(watch_fd, path, bd, og_add_watch)){
 		perror("list_all nftw()");
 		exit(1);

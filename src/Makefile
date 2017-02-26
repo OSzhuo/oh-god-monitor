@@ -1,4 +1,4 @@
-TARGET=og_monitor
+TARGET=og_monitor og_write
 
 CC=gcc -Wall
 
@@ -25,6 +25,11 @@ og_tree.o:og_tree.c og_tree.h
 	$(CC) $(CFLAGS) -c $<
 
 og_tool.o:og_tool.c og_tool.h
+	$(CC) $(CFLAGS) -c $<
+
+og_write:og_write.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
+og_write.o:og_write.c og_write.h
 	$(CC) $(CFLAGS) -c $<
 
 ## old

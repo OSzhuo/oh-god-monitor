@@ -14,9 +14,12 @@
 #define IBIG_NM_MAX		256
 
 /*path///name///type///err///mtime///size(in bytes)///_///_*/
+#define OG_LINE_LEN		(IBIG_PATH_MAX+64)
 
 #define RUNTIME_LIST		"/ibig/ibig_monitor/runtime.list"
 #define PIC_RUN			"/ibig/ibig_monitor/pic.runtime"
+
+#define OG_SOCK_FILE		"/tmp/og_monitor.sock"
 
 /*action will be wrt the value*/
 #define ACT_INIT		1
@@ -66,6 +69,20 @@ typedef struct og_file_unit_st {
 	int	len;		/* the path length() (include '\0') */
 	char	name[0];	/* file name (include nul('\0')) */
 } og_file_unit;
+
+#define OG_SOCK_GET		1
+#define OG_SOCK_START		2
+#define OG_SOCK_LINE		3
+#define OG_SOCK_END		4
+#define OG_SOCK_INIT		5
+
+/* used for write list to file */
+typedef struct og_sock_node_st {
+	int	action;		/* sock action */
+	int	type;
+	int	len;		/* leght of line, include '\0' */
+	char	line[0];	/* this line */
+} og_sock_node;
 
 #define NM_LEN			512
 

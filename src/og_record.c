@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+/* for unix domain socket */
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "og_record.h"
 #include "og_stack.h"
@@ -69,6 +72,9 @@ static og_file_unit	*pub_data;		/* public file node */
 static _watch_list_node	*wlist_head;		/* watch descriptor list head */
 static _file_move_node	pub_move_list[_TMP_MOVE_CNT];	/* tmp */
 
+	og_sock_node *pub_sock_node;
+	int glb_sock_fd;
+
 /*
  * ============== define functions ===============
  */
@@ -107,10 +113,11 @@ static int _update_file_node_name(ogt_node *this, char *newname);
 static int __update_name(void *old, void *new, size_t n);
 
 /* get full path with tree opts */
-static int _get_full_path(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *path, ogt_node **node);
+static int _get_full_path_by_wd(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *path, ogt_node **node);
+int _get_full_path_by_tree_node(const ogt_node *tree_node, char *path, ogs_head *stack_head);
 static int _clean_stack(ogs_head *head);
 static int __read_full_path(ogs_head *head, char *path);
-static int __push_parent_name(ogt_node *this);
+static int __push_parent_name(const ogt_node *this);
 static int _push_name(void *o, void *n, size_t size);
 
 /* opts for watched wd list */
@@ -120,6 +127,12 @@ static int __wlist_add(_watch_list_node *head, ogt_node *node, int wd);
 static int _wlist_is_empty(const _watch_list_node *head);
 static _watch_list_node *_wlist_search(const _watch_list_node *head, int wd);
 static _watch_list_node *_wlist_node_init(void);
+
+/* opts for unix domain socket */
+int _server_send(const struct sockaddr_un *c_addr, socklen_t len);
+int _server_send_init(const struct sockaddr_un *c_addr, socklen_t len);
+int __send_full_line(void *node_in_file, void *sock_node, const ogt_node *tree_node);
+ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *c_addr, socklen_t len);
 
 /* init the pub_data */
 static void *_init_file_unit(void);
@@ -540,9 +553,11 @@ int _work_new(_og_unit *buf)
 	ogt_node *parent;
 	ogt_node *this;
 
-	_get_full_path(wlist_head, buf->wd, glb_name_stack, path, &parent);
+	_get_full_path_by_wd(wlist_head, buf->wd, glb_name_stack, path, &parent);
 	//printf("get full path[%s]\n", path);
+	strcat(path, "/");
 	strcat(path, buf->path);
+	printf("get full name[%s]\n", path);
 #if DEBUG > 8
 	printf("get full name[%s]\n", path);
 #endif
@@ -594,7 +609,8 @@ int _work_modify(_og_unit *buf)
 	ogt_node *this;
 	int err = 0;
 
-	_get_full_path(wlist_head, buf->wd, glb_name_stack, path, &parent);
+	_get_full_path_by_wd(wlist_head, buf->wd, glb_name_stack, path, &parent);
+	strcat(path, "/");
 	strcat(path, buf->path);
 #if DEBUG > 8
 	printf("get full name[%s]\n", path);
@@ -698,7 +714,7 @@ int _clean_stack(ogs_head *head)
  * TODO ==> add path size check
  * 
  */
-int _get_full_path(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *path, ogt_node **node)
+int _get_full_path_by_wd(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *path, ogt_node **node)
 {
 	/* clean the path stack */
 	_clean_stack(stack_head);
@@ -725,6 +741,22 @@ int _get_full_path(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *
 }
 
 /*
+ * give ogt_node @tree_node, write full path to @path
+ */
+int _get_full_path_by_tree_node(const ogt_node *tree_node, char *path, ogs_head *stack_head)
+{
+	_clean_stack(stack_head);
+
+	if(__push_parent_name(tree_node)){
+		return -1;
+	}
+
+	__read_full_path(stack_head, path);
+
+	return 0;
+}
+
+/*
  * pop stack to get full path
  */
 int __read_full_path(ogs_head *head, char *path)
@@ -737,7 +769,8 @@ int __read_full_path(ogs_head *head, char *path)
 		strcat(path, "/");
 		free(name);
 	}
-	//path[strlen(path)-1] = '\0';
+	path[strlen(path)-1] = '\0';
+//printf("this %s\n", __FUNCTION__);
 
 	return 0;
 }
@@ -747,7 +780,7 @@ int __read_full_path(ogs_head *head, char *path)
  * @this	start with this node
  * 
  */
-int __push_parent_name(ogt_node *this)
+int __push_parent_name(const ogt_node *this)
 {
 	if(!this){
 		return 0;
@@ -768,7 +801,7 @@ int _push_name(void *o, void *n, size_t size)
 {
 	og_file_unit *data = o;
 	char *name;
-
+//printf("push this name %s\n", data->name);
 	if(!(name = strdup(data->name))){
 		fprintf(stderr, "strdup() err !\n");
 		return -1;
@@ -987,4 +1020,131 @@ _watch_list_node *_wlist_node_init(void)
 	this->wd = -1;
 
 	return this;
+}
+
+/*
+ * about unix domain socket
+ * 
+ */
+int og_server_init(char *path)
+{
+	unlink(path);
+
+	int unix_sock_fd;
+	struct sockaddr_un s_addr;
+
+	if((unix_sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
+		perror("unix domain socket()");
+		return -1;
+	}
+
+	s_addr.sun_family = AF_UNIX;
+	strcpy(s_addr.sun_path, path);
+
+	if(bind(unix_sock_fd, (struct sockaddr *)&s_addr, sizeof(struct sockaddr_un)) < 0){
+		perror("bind()");
+		return -1;
+	}
+
+	if(!(pub_sock_node = malloc(sizeof(og_sock_node)+OG_LINE_LEN))){
+		perror("malloc pub_sock_node");
+		return -1;
+	}
+	pub_sock_node->action = 0;
+	glb_sock_fd = unix_sock_fd;
+
+	return 0;
+}
+
+void *og_server_work(void *p)
+{
+	socklen_t c_len;
+	struct sockaddr_un c_addr;
+	int ret;
+
+	while(1){
+		if((ret = recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&c_addr, &c_len)) <= 0){
+			continue;
+		}
+		fprintf(stdout, "get message action[%d] from addr[%s][len:%d]\n", pub_sock_node->action, c_addr.sun_path, c_len);
+		if(OG_SOCK_GET == pub_sock_node->action){
+			fprintf(stdout, "get start send list\n");
+			if(glb_in_init)
+				_server_send_init(&c_addr, c_len);
+			else
+				_server_send(&c_addr, c_len);
+		}
+	}
+
+	return NULL;
+}
+
+int _server_send_init(const struct sockaddr_un *c_addr, socklen_t len)
+{
+	pub_sock_node->action = OG_SOCK_INIT;
+	pub_sock_node->len = 0;
+
+	return __server_sendto(pub_sock_node, c_addr, len);
+}
+
+int _server_send(const struct sockaddr_un *c_addr, socklen_t len)
+{
+	pub_sock_node->action = OG_SOCK_START;
+	pub_sock_node->len = 0;
+	__server_sendto(pub_sock_node, c_addr, len);
+
+	ogt_preorder_R(glb_ogt_handle, &__send_full_line, pub_sock_node);
+	//ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data);
+		/* start read all file */
+
+	pub_sock_node->action = OG_SOCK_END;
+	pub_sock_node->len = 0;
+	__server_sendto(pub_sock_node, c_addr, len);
+
+	return 0;
+}
+
+//int __set_root()
+//{
+//}
+//
+int __send_full_line(void *node_in_file, void *sock_node, const ogt_node *tree_node)
+{
+	og_file_unit *file_node = node_in_file;
+	og_sock_node *sock = sock_node;
+	char tmp[IBIG_NM_MAX+32];
+	ogt_node *parent;
+	char *name;
+
+	sock->action = OG_SOCK_LINE;
+	sock->type = file_node->type;
+	sock->line[0] = '\0';
+//printf("this name [%p][%s]\n", tree_node, file_node->name);
+
+	if((parent = ogt_parent(tree_node))){
+		_get_full_path_by_tree_node(parent, sock->line, glb_name_stack);
+		name = file_node->name;
+	}else{
+		strcpy(sock->line, file_node->name);
+		if(!(name = strrchr(sock->line, '/'))){
+			return 0;
+		}
+		*name = '\0';
+		name = name +1;
+	}
+
+	sprintf(tmp, "///%s///%c///%d///%ld///%lu///_///_", name, file_node->type, file_node->err, file_node->mtime, file_node->size);
+	strcat(sock->line, tmp);
+
+	sock->len = strlen(sock->line) + 1;	/* for '\0'*/
+
+	fprintf(stdout, "get full line[%s]\n", sock->line);
+//	__server_sendto(sock, c_addr, socklen_t len)
+
+	return 0;
+}
+
+ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *c_addr, socklen_t len)
+{
+	return sendto(glb_sock_fd, node, offsetof(og_sock_node, line)+node->len, 0, (struct sockaddr *)c_addr, len);
 }
