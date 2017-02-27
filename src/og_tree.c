@@ -429,7 +429,7 @@ int ogt_move_node(int handle, ogt_node *this, ogt_node *parent)
 	_ogt_head *head = handles[handle];
 
 	if(NULL == parent){
-printf("move node to root!\n");
+printf("no parent, move node to root!\n");
 		parent = head->root;
 	}
 
@@ -449,7 +449,7 @@ int ogt_delete_node(int handle, ogt_node *this)
 {
 	if(!handles[handle])
 		return -1;
-//printf("del pos[%p][%u,%u]\n", this, this->pos.page, this->pos.offset);
+
 	_ogt_head *head = handles[handle];
 
 	_delete_sub_tree(head, this);
@@ -494,10 +494,6 @@ ogt_node *ogt_get_node_by_parent(int handle, ogt_node *parent, int (*func)(void 
 
 	_ogt_head *head = handles[handle];
 //printf("[%s][%p][%p][%p]\n", __FUNCTION__, parent, parent->l_child, parent->r_sib);
-
-	//if(!parent->l_child){
-	//	return NULL;
-	//}
 
 	return _get_node_by_left(head, parent->l_child, func, data);
 }
@@ -653,9 +649,6 @@ int _get_free_node_in_page(char *page, uint32_t len, uint32_t *off)
 //printf("start find with offset[%u]\n", *off);
 
 	while(offset + len <= OGT_PAGE_SIZE){
-//if(offset > 4193010)
-//	printf("offset = %u page_size %u \n", offset, OGT_PAGE_SIZE);
-
 		if(!(this->mask & _OGT_INUSE)){
 			this->mask |= _OGT_INUSE;
 			*off = offset;
@@ -756,19 +749,14 @@ void ogt_tree_travel(int handle, void (*func_p)(void *))
 	if(!head)
 		return;
 
-	//_ogt_travel_head thead;
 	char *tmp_page;
 
 	if(MAP_FAILED == (tmp_page = _mmap_pageN(head->fd, 0))){
 		perror("_mmap_pageN()");
 		return;
 	}
-	//thead.fd = head->fd;
 	head->pageN_tmp = 0;
 	head->tmp_page = tmp_page;
-	//head->file_head->page_cnt;
-
-	//uint32_t len = head->file_head->data_len + sizeof(ogt_data_node);
 
 	_ogt_tree_travel(head, head->root, func_p, 0, 0, 1);
 	tmp_page = head->tmp_page;
@@ -807,15 +795,6 @@ void _ogt_tree_travel(_ogt_head *head, ogt_node *node, void (*func_p)(void *), i
  */
 int ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data)
 {
-//typedef struct _ogt_travel_head_t {
-//	ogt_node		*root;		/*tree_head in memory*/
-//	uint32_t	pageN;	/*now pageN used for write*/
-//	uint32_t	maxN;	/*now pageN used for write*/
-//	void		*tmp_page;	/*pointer to the mapped page*/
-//	int32_t		fd;
-//	//uint32_t	used_size;	/*length already use in file*/
-//} _ogt_travel_head;
-
 	_ogt_head *head = handles[handle];
 	if(!head)
 		return -1;

@@ -28,11 +28,11 @@
 
 #define OGT_NAME_MAX		255
 #define OGT_HANDLER_CNT		8
-/*every page is 32M; the value must be N*4k*/
-#define OGT_PAGE_SIZE		(4*1024*8*1024UL)
-//#define OGT_PAGE_SIZE		(4*1024*1024UL)
+/*every page is 16M; the value must be N*4k*/
+#define OGT_PAGE_SIZE		(4*1024*4*1024UL)
 
-#define OGT_DFT_MEM_PAGE		(4*1024UL)
+/* default size of head page*/
+#define OGT_DFT_MEM_PAGE	(4*1024UL)
 
 /*this ogt_head_t will write to file*/
 /*_SC_PAGE_SIZE must be larger than sizeof(ogt_head)*/

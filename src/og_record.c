@@ -72,8 +72,11 @@ static og_file_unit	*pub_data;		/* public file node */
 static _watch_list_node	*wlist_head;		/* watch descriptor list head */
 static _file_move_node	pub_move_list[_TMP_MOVE_CNT];	/* tmp */
 
-	og_sock_node *pub_sock_node;
-	int glb_sock_fd;
+/*just for unix domain socket*/
+static og_sock_node *pub_sock_node;
+static int glb_sock_fd;
+static struct sockaddr_un glb_c_addr;
+static socklen_t glb_sock_len;
 
 /*
  * ============== define functions ===============
@@ -129,10 +132,11 @@ static _watch_list_node *_wlist_search(const _watch_list_node *head, int wd);
 static _watch_list_node *_wlist_node_init(void);
 
 /* opts for unix domain socket */
-int _server_send(const struct sockaddr_un *c_addr, socklen_t len);
-int _server_send_init(const struct sockaddr_un *c_addr, socklen_t len);
-int __send_full_line(void *node_in_file, void *sock_node, const ogt_node *tree_node);
-ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *c_addr, socklen_t len);
+static int _server_send(void);
+static int _server_send_init(void);
+static int __send_full_line(void *node_in_file, void *sock_node, const ogt_node *tree_node);
+static ssize_t __server_sendto(og_sock_node *node);
+static int __trunc_line(og_sock_node *node, const char *head);
 
 /* init the pub_data */
 static void *_init_file_unit(void);
@@ -212,18 +216,6 @@ printf("init ok, destory directory stack\n");
 
 	return 0;
 }
-
-//int _trunc_path(_og_unit *buf, char *head)
-//{
-//	size_t len = strlen(head);
-//	if(strncmp(buf->path, head, len))
-//		return -1;
-//
-//	buf->len -= len;
-//	memmove(buf->path, buf->path+len, buf->len);
-//
-//	return 0;
-//}
 
 void *og_record_work(void *x)
 {
@@ -557,7 +549,6 @@ int _work_new(_og_unit *buf)
 	//printf("get full path[%s]\n", path);
 	strcat(path, "/");
 	strcat(path, buf->path);
-	printf("get full name[%s]\n", path);
 #if DEBUG > 8
 	printf("get full name[%s]\n", path);
 #endif
@@ -1052,46 +1043,44 @@ int og_server_init(char *path)
 	}
 	pub_sock_node->action = 0;
 	glb_sock_fd = unix_sock_fd;
+	glb_sock_len = sizeof(struct sockaddr_un);
 
 	return 0;
 }
 
 void *og_server_work(void *p)
 {
-	socklen_t c_len;
-	struct sockaddr_un c_addr;
-	int ret;
-
 	while(1){
-		if((ret = recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&c_addr, &c_len)) <= 0){
+		if(recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&glb_c_addr, &glb_sock_len) <= 0){
 			continue;
 		}
-		fprintf(stdout, "get message action[%d] from addr[%s][len:%d]\n", pub_sock_node->action, c_addr.sun_path, c_len);
+		fprintf(stdout, "get message action[%d] from family[%d]AF_UNIX[%d] addr[%s][len:%d]\n", pub_sock_node->action, glb_c_addr.sun_family, AF_UNIX, glb_c_addr.sun_path, glb_sock_len);
 		if(OG_SOCK_GET == pub_sock_node->action){
-			fprintf(stdout, "get start send list\n");
+			if(pub_sock_node->len)
+				fprintf(stdout, "get start send list from line[%s]\n", pub_sock_node->line);
 			if(glb_in_init)
-				_server_send_init(&c_addr, c_len);
+				_server_send_init();
 			else
-				_server_send(&c_addr, c_len);
+				_server_send();
 		}
 	}
 
 	return NULL;
 }
 
-int _server_send_init(const struct sockaddr_un *c_addr, socklen_t len)
+int _server_send_init(void)
 {
 	pub_sock_node->action = OG_SOCK_INIT;
 	pub_sock_node->len = 0;
 
-	return __server_sendto(pub_sock_node, c_addr, len);
+	return __server_sendto(pub_sock_node);
 }
 
-int _server_send(const struct sockaddr_un *c_addr, socklen_t len)
+int _server_send(void)
 {
 	pub_sock_node->action = OG_SOCK_START;
 	pub_sock_node->len = 0;
-	__server_sendto(pub_sock_node, c_addr, len);
+	__server_sendto(pub_sock_node);
 
 	ogt_preorder_R(glb_ogt_handle, &__send_full_line, pub_sock_node);
 	//ogt_preorder_R(int handle, int (*node_func)(void *file, void *data, const ogt_node *node), void *data);
@@ -1099,7 +1088,7 @@ int _server_send(const struct sockaddr_un *c_addr, socklen_t len)
 
 	pub_sock_node->action = OG_SOCK_END;
 	pub_sock_node->len = 0;
-	__server_sendto(pub_sock_node, c_addr, len);
+	__server_sendto(pub_sock_node);
 
 	return 0;
 }
@@ -1138,13 +1127,26 @@ int __send_full_line(void *node_in_file, void *sock_node, const ogt_node *tree_n
 
 	sock->len = strlen(sock->line) + 1;	/* for '\0'*/
 
-	fprintf(stdout, "get full line[%s]\n", sock->line);
-//	__server_sendto(sock, c_addr, socklen_t len)
+	//fprintf(stdout, "get full line[%s]\n", sock->line);
+	__trunc_line(sock, OG_TRUNC_HEAD);
+	__server_sendto(sock);
 
 	return 0;
 }
 
-ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *c_addr, socklen_t len)
+ssize_t __server_sendto(og_sock_node *node)
 {
-	return sendto(glb_sock_fd, node, offsetof(og_sock_node, line)+node->len, 0, (struct sockaddr *)c_addr, len);
+	return sendto(glb_sock_fd, node, offsetof(og_sock_node, line)+node->len, 0, (struct sockaddr *)&glb_c_addr, glb_sock_len);
+}
+
+int __trunc_line(og_sock_node *node, const char *head)
+{
+	size_t len = strlen(head);
+	if(strncmp(node->line, head, len))
+		return -1;
+
+	node->len -= len;
+	memmove(node->line, node->line+len, node->len);
+
+	return 0;
 }

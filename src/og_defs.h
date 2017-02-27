@@ -19,6 +19,8 @@
 #define RUNTIME_LIST		"/ibig/ibig_monitor/runtime.list"
 #define PIC_RUN			"/ibig/ibig_monitor/pic.runtime"
 
+#define OG_TRUNC_HEAD		"/tmp/mnt"
+
 #define OG_SOCK_FILE		"/tmp/og_monitor.sock"
 
 /*action will be wrt the value*/

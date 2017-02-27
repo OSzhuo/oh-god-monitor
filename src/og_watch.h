@@ -15,6 +15,6 @@
 
 int og_watch_init(int bd);
 int og_add_watch(int watch_fd, const char *path);
-int og_watch_listen_cycle(int watch_fd);
+void *og_watch_listen_cycle(void *p);
 
 #endif

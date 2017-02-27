@@ -12,6 +12,7 @@
 
 static _og_unit *pub_unit;
 static int glb_bd;
+static int glb_watch_fd;
 
 /**
  * !
@@ -53,6 +54,7 @@ int og_watch_init(int bd)
 		return -1;
 	}
 	glb_bd = bd;
+	glb_watch_fd = fd;
 
 	return fd;
 }
@@ -71,18 +73,18 @@ int og_add_watch(int watch_fd, const char *path)
 	return wd;
 }
 
-int og_watch_listen_cycle(int watch_fd)
+void *og_watch_listen_cycle(void *p)
 {
 	char buf[RD_BUF_LEN];
 	//int nread;
 	int cnt;
 
 /* || read 0 bytes becase:read from inotify fd,at least 1 unit, do not worry for while(1) */
-	while(1 || read(watch_fd, buf, 0)){
+	while(1 || read(glb_watch_fd, buf, 0)){
 		//ioctl(fd, FIONREAD, &nread);
-		if((cnt = read(watch_fd, buf, RD_BUF_LEN)) < 0){
+		if((cnt = read(glb_watch_fd, buf, RD_BUF_LEN)) < 0){
 			perror("read()");
-			return -1;
+			return NULL;
 		}
 		if(_monitor_worker(buf, cnt)){
 			printf("err ???\n");
@@ -90,7 +92,7 @@ int og_watch_listen_cycle(int watch_fd)
 		}
 	}
 
-	return 0;
+	return NULL;
 }
 
 /*return bytes left do not work*/

@@ -146,7 +146,7 @@ int og_init_over(void)
 	pub_unit->len = 0;
 
 	while(obuf_write(glb_bd, pub_unit, offsetof(_og_unit, path) + pub_unit->len, 0, NULL) < 0){
-		//usleep(10);
+		usleep(10);
 	}
 
 	return 0;

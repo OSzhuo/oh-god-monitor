@@ -1,10 +1,10 @@
-TARGET=og_monitor og_write
+TARGET=og_monitor
 
 CC=gcc -Wall
 
 all:$(TARGET)
 
-og_monitor:og_init.o og_watch.o og_ctl.o og_record.o obuf.o og_tool.o og_tree.o og_stack.o
+og_monitor:og_ctl.o og_write.o og_init.o og_watch.o og_record.o obuf.o og_tool.o og_tree.o og_stack.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
 og_init.o:og_init.c og_init.h
 	$(CC) $(CFLAGS) -c $<
@@ -31,12 +31,6 @@ og_write:og_write.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
 og_write.o:og_write.c og_write.h
 	$(CC) $(CFLAGS) -c $<
-
-## old
-ibig_monitor:monitor_init.o monitor_watch.o monitor_ctl.c monitor_record.o obuf.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
-monitor_init.o:monitor_init.c monitor_init.h
-	$(CC) $(CFLAGS) -D_GNU_SOURCE -c $<
 
 .PHONY:clean
 clean:

@@ -11,44 +11,41 @@
 
 #include "og_write.h"
 
-	og_sock_node *pub_sock_node;
-	int glb_sock_fd;
-	int glb_list_fd;
-	int glb_pic_fd;
+static og_sock_node *pub_sock_node;
+static int glb_sock_fd;
+static int glb_list_fd;
+static int glb_pic_fd;
+static char tmp_sock_file[] = "/tmp/sock_tmp_XXXXXX";
+static struct sockaddr_un glb_s_addr;
+static socklen_t glb_sock_len;
 
-ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *s_addr, socklen_t len);
+ssize_t __server_sendto(og_sock_node *node);
 ssize_t __write_all(int fd, const void *buf, size_t count);
 int __write_file(og_sock_node *node);
 int __type_handler(og_sock_node *node);
-int _client_recv(struct sockaddr_un *s_addr, socklen_t *len);
-int og_client_work();
-int og_client_init(const char *path);
-
-int main(void)
-{
-	og_client_init(OG_SOCK_FILE);
-	og_client_work(OG_SOCK_FILE);
-
-	return 0;
-}
+int _client_recv(void);
 
 int og_client_init(const char *path)
 {
 	int unix_sock_fd;
-//	struct sockaddr_un c_addr;
+	struct sockaddr_un c_addr;
 
 	if((unix_sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
 		perror("unix domain socket()");
 		return -1;
 	}
 
-	//c_addr.sun_family = AF_UNIX;
-	//strcpy(c_addr.sun_path, path);
+	c_addr.sun_family = AF_UNIX;
+	int fd = mkstemp(tmp_sock_file);
+	strcpy(c_addr.sun_path, tmp_sock_file);
+	unlink(tmp_sock_file);
+	close(fd);
 
-	//if(bind(unix_sock_fd, (struct sockaddr *)&c_addr, sizeof(struct sockaddr_un)) < 0){
-	//	perror("bind()");
-	//	return -1;
-	//}
+	if(bind(unix_sock_fd, (struct sockaddr *)&c_addr, sizeof(struct sockaddr_un)) < 0){
+		perror("bind()");
+		return -1;
+	}
+printf("bind path[%s] ok\n", tmp_sock_file);
 
 	if(!(pub_sock_node = malloc(sizeof(og_sock_node)+OG_LINE_LEN))){
 		perror("malloc pub_sock_node");
@@ -64,6 +61,8 @@ int og_client_init(const char *path)
 		perror("open pic list failed");
 		return -1;
 	}
+	glb_s_addr.sun_family = AF_UNIX;
+	strcpy(glb_s_addr.sun_path, path);
 
 	return 0;
 }
@@ -72,29 +71,27 @@ int og_client_init(const char *path)
  * socket file path
  * 
  */
-int og_client_work(const char *path)
+int og_client_work(void)
 {
-	struct sockaddr_un s_addr;
-	socklen_t len;
+	glb_sock_len = sizeof(struct sockaddr_un);
 
-	s_addr.sun_family = AF_UNIX;
-	strcpy(s_addr.sun_path, path);
-	len = sizeof(struct sockaddr_un);
 	int i;
 
 	for(i = 0; i < 3; i++){
 		pub_sock_node->action = OG_SOCK_GET;
+		pub_sock_node->line[0] = '\0';
 		pub_sock_node->len = 0;
-		__server_sendto(pub_sock_node, &s_addr, len);
+		__server_sendto(pub_sock_node);
+printf("send to server Get msg\n");
 		
-		if(recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&s_addr, &len) <= 0){
+		if(recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&glb_s_addr, &glb_sock_len) <= 0){
 perror("recvfrom()");
 			continue;
 		}
-fprintf(stdout, "recv action[%d]\n", pub_sock_node->action);
+fprintf(stdout, "recv action[%d] from socket[%s]\n", pub_sock_node->action, glb_s_addr.sun_path);
 		if(OG_SOCK_INIT == pub_sock_node->action){
 			fprintf(stdout, "already in init...\n");
-			return 0;
+			return C_ERR_INIT;
 		}
 		if(OG_SOCK_START == pub_sock_node->action){
 			break;
@@ -105,22 +102,22 @@ fprintf(stdout, "recv action[%d]\n", pub_sock_node->action);
 		return -1;
 	}
 
-	_client_recv(&s_addr, &len);
+	_client_recv();
 
 	return 0;
 }
 
-int _client_recv(struct sockaddr_un *s_addr, socklen_t *s_len)
+int _client_recv(void)
 {
-printf("this\n");
 	while(1){
-		if(recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&s_addr, s_len) <= 0){
+		if(recvfrom(glb_sock_fd, pub_sock_node, sizeof(og_sock_node)+OG_LINE_LEN, 0, (struct sockaddr *)&glb_s_addr, &glb_sock_len) <= 0){
 			return -1;
 		}
 		if(OG_SOCK_END == pub_sock_node->action){
+			fprintf(stdout, "file list recv over\n");
 			break;
 		}
-		fprintf(stdout, "get line[%s]\n", pub_sock_node->line);
+		//fprintf(stdout, "get line[%s]\n", pub_sock_node->line);
 		__write_file(pub_sock_node);
 	}
 
@@ -129,7 +126,7 @@ printf("this\n");
 
 int __type_handler(og_sock_node *node)
 {
-	if(TYPE_P != node->action){
+	if(TYPE_P != node->type){
 		return -1;
 	}
 
@@ -154,7 +151,14 @@ ssize_t __write_all(int fd, const void *buf, size_t count)
 	return write(fd, buf, count);
 }
 
-ssize_t __server_sendto(og_sock_node *node, const struct sockaddr_un *s_addr, socklen_t len)
+ssize_t __server_sendto(og_sock_node *node)
 {
-	return sendto(glb_sock_fd, node, offsetof(og_sock_node, line)+node->len, 0, (struct sockaddr *)s_addr, len);
+//printf("addr[%s]\n", glb_s_addr.sun_path);
+	return sendto(glb_sock_fd, node, offsetof(og_sock_node, line)+node->len, 0, (struct sockaddr *)&glb_s_addr, glb_sock_len);
+}
+
+void og_client_clean(void)
+{
+	close(glb_sock_fd);
+	unlink(tmp_sock_file);
 }
