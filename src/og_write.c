@@ -11,6 +11,8 @@
 
 #include "og_write.h"
 
+#define TRY_CNT		3
+
 static og_sock_node *pub_sock_node;
 static int glb_sock_fd;
 static int glb_list_fd;
@@ -29,6 +31,7 @@ int og_client_init(const char *path)
 {
 	int unix_sock_fd;
 	struct sockaddr_un c_addr;
+	struct timeval tv_sock = {3, 0};
 
 	if((unix_sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
 		perror("unix domain socket()");
@@ -40,6 +43,13 @@ int og_client_init(const char *path)
 	strcpy(c_addr.sun_path, tmp_sock_file);
 	unlink(tmp_sock_file);
 	close(fd);
+
+	if(setsockopt(unix_sock_fd, SOL_SOCKET, SO_SNDTIMEO, &tv_sock, sizeof(struct timeval)))
+		perror("error:getsockopt()");
+	if(setsockopt(unix_sock_fd, SOL_SOCKET, SO_RCVTIMEO, &tv_sock, sizeof(struct timeval)))
+		perror("error:getsockopt()");
+fprintf(stdout, "setsockopt: tv_sec = %d tv_usec = %d\n", tv_sock.tv_sec, tv_sock.tv_usec);
+
 
 	if(bind(unix_sock_fd, (struct sockaddr *)&c_addr, sizeof(struct sockaddr_un)) < 0){
 		perror("bind()");
@@ -77,7 +87,7 @@ int og_client_work(void)
 
 	int i;
 
-	for(i = 0; i < 3; i++){
+	for(i = 0; i < TRY_CNT; i++){
 		pub_sock_node->action = OG_SOCK_GET;
 		pub_sock_node->line[0] = '\0';
 		pub_sock_node->len = 0;
@@ -97,9 +107,9 @@ fprintf(stdout, "recv action[%d] from socket[%s]\n", pub_sock_node->action, glb_
 			break;
 		}
 	}
-	if(i == 3){
-		fprintf(stderr, "i equal 3, so.... socket have failed!\n");
-		return -1;
+	if(i == TRY_CNT){
+		fprintf(stderr, "i have try %d times, server have been shutdown !\n", TRY_CNT);
+		return C_ERR_TIMO;
 	}
 
 	_client_recv();

@@ -5,7 +5,7 @@
 
 #define C_ERR_OTHER		1
 #define C_ERR_INIT		2
-//#define C_ERR_OTHER		3
+#define C_ERR_TIMO		3
 
 /* TODO ===> check if server is in running */
 int og_client_init(const char *path);
