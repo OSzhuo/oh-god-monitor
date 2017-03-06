@@ -57,7 +57,9 @@ int og_master(int cnt, char **path)
 	}
 
 	og_init_start();
-	og_server_init(OG_SOCK_FILE);
+	if(og_server_init(OG_SOCK_FILE) < 0){
+		return -1;
+	}
 
 	if(pthread_create(&last, NULL, og_server_work, NULL)){
 		perror("pthread_create()");

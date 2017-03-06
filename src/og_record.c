@@ -707,26 +707,18 @@ int _clean_stack(ogs_head *head)
  */
 int _get_full_path_by_wd(_watch_list_node *wlist, int wd, ogs_head *stack_head, char *path, ogt_node **node)
 {
-	/* clean the path stack */
-	_clean_stack(stack_head);
-	*node = NULL;
-
-	ogt_node *this;
 	_watch_list_node *w_this;
 
 	if(!(w_this = _wlist_search(wlist, wd))){
 		fprintf(stderr, "can not find wd[%d] in watch list\n", wd);
 		return -1;
 	}
-	this = w_this->this;
 
-	if(__push_parent_name(this)){
+	if(_get_full_path_by_tree_node(w_this->this, path, stack_head) < 0){
 		return -1;
 	}
 
-	__read_full_path(stack_head, path);
-
-	*node = this;
+	*node = w_this->this;
 
 	return 0;
 }
@@ -736,6 +728,7 @@ int _get_full_path_by_wd(_watch_list_node *wlist, int wd, ogs_head *stack_head, 
  */
 int _get_full_path_by_tree_node(const ogt_node *tree_node, char *path, ogs_head *stack_head)
 {
+	/* clean the path stack */
 	_clean_stack(stack_head);
 
 	if(__push_parent_name(tree_node)){
@@ -1019,7 +1012,11 @@ _watch_list_node *_wlist_node_init(void)
  */
 int og_server_init(char *path)
 {
-	unlink(path);
+	if(!access(path, F_OK)){
+		fprintf(stderr, "file [%s] already exsit\n", path);
+		return -1;
+	}
+	//unlink(path);
 
 	int unix_sock_fd;
 	struct sockaddr_un s_addr;
