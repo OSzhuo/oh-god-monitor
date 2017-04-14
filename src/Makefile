@@ -4,13 +4,15 @@ CC=gcc -Wall
 
 all:$(TARGET)
 
-og_monitor:og_ctl.o og_write.o og_init.o og_watch.o og_record.o obuf.o og_tool.o og_tree.o og_stack.o
+og_monitor:og_ctl.o og_write.o og_init.o og_watch.o og_record.o obuf.o og_ftw.o og_tool.o og_tree.o og_stack.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -pthread -o $@
 og_init.o:og_init.c og_init.h
 	$(CC) $(CFLAGS) -c $<
 og_record.o:og_record.c og_record.h
 	$(CC) $(CFLAGS) -c $<
 og_watch.o:og_watch.c og_watch.h
+	$(CC) $(CFLAGS) -c $<
+og_ftw.o:og_ftw.c og_ftw.h
 	$(CC) $(CFLAGS) -c $<
 og_ctl.o:og_ctl.c
 	$(CC) $(CFLAGS) -c $<
