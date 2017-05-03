@@ -139,7 +139,7 @@ int _walk_file_tree_recursively(const char *path, int (*handler)(const char *pat
 				_ftw_errno = errno;
 				fprintf(stderr, "stat file[%s] failed! walk continue.\n", next_file);
 				/* this file unreadable */
-				if(OG_FTW_STOP == (ret = _handler_run(path, handler, NULL, base))){
+				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, NULL, base))){
 					free(next_file);
 					closedir(dir);
 					return ret;
