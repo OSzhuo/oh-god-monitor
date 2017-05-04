@@ -39,8 +39,8 @@ int og_master(int cnt, char **path)
 	int bd;
 	int watch_fd;
 
-	//if((bd = init_buf(512*1024)) < 0){
-	if((bd = init_buf(1024)) < 0){
+	if((bd = init_buf(512*1024)) < 0){
+	//if((bd = init_buf(1024)) < 0){
 		return -1;
 	}
 
@@ -56,7 +56,10 @@ int og_master(int cnt, char **path)
 		return -1;
 	}
 
-	og_init_start();
+	if(og_init_start()){
+		fprintf(stderr, "start init err.\n");
+		return -1;
+	}
 	if(og_server_init(OG_SOCK_FILE) < 0){
 		return -1;
 	}

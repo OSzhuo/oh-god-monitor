@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,7 +13,7 @@
 /* ftw errno like errno */
 static int _ftw_errno;
 
-static int _handler_run(const char *path, int  (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base);
+static int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base);
 static int _walk_file_tree_recursively(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), int o_base);
 
 #if _OG_FTW_DEBUG > 6
@@ -68,7 +68,7 @@ fprintf(stdout, "og_ftw set base[%d] name[%s]\n", base, my_path+base);
 	return _walk_file_tree_recursively(my_path, fn, base);
 }
 
-int _handler_run(const char *path, int  (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base)
+int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base)
 {
 	int type;
 	struct stat tmp;
@@ -77,10 +77,14 @@ int _handler_run(const char *path, int  (*handler)(const char *path, const struc
 		if(!lstat(path, &tmp)){
 			buf = &tmp;
 		}else{
-			perror("lstat()");
+			fprintf(stderr, "[ERR][%s][%d]lstat(%s):%s\n", __FILE__, __LINE__, path, strerror(errno));
 			buf = NULL;
 		}
 	}
+
+/* to delete this two lines. if buf == (void *)-1, let buf=NULL*/
+if((void *)-1 == buf)
+	buf = NULL;
 
 	if(buf && S_ISDIR(buf->st_mode) && !S_ISLNK(buf->st_mode)){
 		type = OG_FTW_D;
@@ -137,9 +141,9 @@ int _walk_file_tree_recursively(const char *path, int (*handler)(const char *pat
 			}
 			if(-1 == lstat(next_file, &my_stat)){
 				_ftw_errno = errno;
-				fprintf(stderr, "stat file[%s] failed! walk continue.\n", next_file);
+fprintf(stderr, "[ERR][%s][%d]lstat(%s):%s\n", __FILE__, __LINE__, next_file, strerror(errno));
 				/* this file unreadable */
-				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, NULL, base))){
+				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, (void *)-1, base))){
 					free(next_file);
 					closedir(dir);
 					return ret;
@@ -160,9 +164,13 @@ int _walk_file_tree_recursively(const char *path, int (*handler)(const char *pat
 				}
 				//static int status;
 				if(OG_FTW_SKIP == (ret = _walk_file_tree_recursively(next_file, handler, base))){
+#if _OG_FTW_DEBUG > 7
 					fprintf(stdout, "this dir[%s] skiped.\n", next_file);
+#endif
 				}else if(OG_FTW_STOP == ret){
-					fprintf(stderr, "[%d]handler return nonzero,stop walk.\n", __LINE__);
+#if _OG_FTW_DEBUG > 3
+					fprintf(stderr, "[%s][%d]handler return nonzero,stop walk.\n", __FUNCTION__, __LINE__);
+#endif
 					free(next_file);
 					closedir(dir);
 					return ret;
@@ -177,7 +185,9 @@ int _walk_file_tree_recursively(const char *path, int (*handler)(const char *pat
 					return -1;
 				}
 				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, &my_stat, base))){
-					fprintf(stderr, "handler return nonzero,stop walk.\n");
+#if _OG_FTW_DEBUG > 3
+					fprintf(stderr, "[%s][%d]handler return nonzero,stop walk.\n", __FUNCTION__, __LINE__);
+#endif
 					free(next_file);
 					closedir(dir);
 					return ret;

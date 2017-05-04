@@ -53,7 +53,7 @@ int _ftw_handle(const char *path, const struct stat *sb, int type, int base)
 		(type == OG_FTW_D) ? "d" : (type == OG_FTW_F) ? "f" :
 		(type == OG_FTW_DNR) ? "dnr" : (type == OG_FTW_NS) ? "ns" :
 		(type == OG_FTW_SL) ? "sl" : "???",
-		path, sb->st_size, base, path+base);
+		path, sb ? sb->st_size:0, base, path+base);
 */
 
 	if('.' == path[base]){
