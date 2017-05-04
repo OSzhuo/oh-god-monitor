@@ -13,7 +13,7 @@
 /* ftw errno like errno */
 static int _ftw_errno;
 
-static int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base);
+static int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int type, int base);
 static int _walk_file_tree_recursively(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), int o_base);
 
 #if _OG_FTW_DEBUG > 6
@@ -68,9 +68,8 @@ fprintf(stdout, "og_ftw set base[%d] name[%s]\n", base, my_path+base);
 	return _walk_file_tree_recursively(my_path, fn, base);
 }
 
-int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int base)
+int _handler_run(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), struct stat *buf, int type, int base)
 {
-	int type;
 	struct stat tmp;
 
 	if(!buf){
@@ -82,14 +81,23 @@ int _handler_run(const char *path, int (*handler)(const char *path, const struct
 		}
 	}
 
-/* to delete this two lines. if buf == (void *)-1, let buf=NULL*/
+/* to delete this two lines. -1 means stat failed ,buf == (void *)-1, let buf=NULL*/
 if((void *)-1 == buf)
 	buf = NULL;
 
-	if(buf && S_ISDIR(buf->st_mode) && !S_ISLNK(buf->st_mode)){
-		type = OG_FTW_D;
-	}else{
-		type = OG_FTW_F;
+	if(OG_FTW_U == type){
+		if(!buf){
+			type = OG_FTW_NS;
+		}else if(S_ISLNK(buf->st_mode)){
+			type = OG_FTW_SL;
+		}else if(S_ISDIR(buf->st_mode)){
+			type = OG_FTW_D;
+		}else{
+			type = OG_FTW_F;
+		}
+#if _OG_FTW_DEBUG > 8
+		fprintf(stdout, "set type to %d\n", type);
+#endif
 	}
 	//fprintf(stdout, "[%s][%s][%d] type[%d][%s] name[%d][%s]\n", __FILE__, __FUNCTION__, __LINE__, type, path, base, path+base);
 
@@ -107,11 +115,12 @@ if((void *)-1 == buf)
 int _walk_file_tree_recursively(const char *path, int (*handler)(const char *path, const struct stat *sb, int type, int base), int o_base)
 {
 	int ret;
+	int type = OG_FTW_U;
 	DIR *dir;
 	int base = strlen(path) + 1;
 	_ftw_errno = 0;
 
-	if(OG_FTW_CONTINUE != (ret = _handler_run(path, handler, NULL, o_base)))
+	if(OG_FTW_CONTINUE != (ret = _handler_run(path, handler, NULL, type, o_base)))
 		return ret;
 
 	dir = opendir(path);
@@ -142,8 +151,14 @@ int _walk_file_tree_recursively(const char *path, int (*handler)(const char *pat
 			if(-1 == lstat(next_file, &my_stat)){
 				_ftw_errno = errno;
 fprintf(stderr, "[ERR][%s][%d]lstat(%s):%s\n", __FILE__, __LINE__, next_file, strerror(errno));
+				type = OG_FTW_NS;
+#ifdef _DIRENT_HAVE_D_TYPE
+//fprintf(stderr, "");
+				if(DT_DIR == ent->d_type)
+					type = OG_FTW_DNR;
+#endif
 				/* this file unreadable */
-				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, (void *)-1, base))){
+				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, (void *)-1, type, base))){
 					free(next_file);
 					closedir(dir);
 					return ret;
@@ -162,6 +177,7 @@ fprintf(stderr, "[ERR][%s][%d]lstat(%s):%s\n", __FILE__, __LINE__, next_file, st
 					fprintf(stderr, "out of memory!\n");
 					return -1;
 				}
+				type = OG_FTW_D;
 				//static int status;
 				if(OG_FTW_SKIP == (ret = _walk_file_tree_recursively(next_file, handler, base))){
 #if _OG_FTW_DEBUG > 7
@@ -178,13 +194,31 @@ fprintf(stderr, "[ERR][%s][%d]lstat(%s):%s\n", __FILE__, __LINE__, next_file, st
 				free(next_file);
 			// if isdir and not islnk
 			}else{
+				type = OG_FTW_U;
+#ifdef _DIRENT_HAVE_D_TYPE
+				/* only care type:DT_DIR, DT_LNK, DT_REG, DT_UNKNOWN*/
+				/* so replace switch with if else
+				switch(ent->d_type){
+					case DT_DIR:
+						type = OG_FTW_D;
+						fprintf(stderr, "[WTF] what? how can you see this msg for file[%s]\n", next_file);
+						break;
+					case DT_LNK:
+						type = OG_FTW_SL;
+						break;
+					default:
+						type = OG_FTW_F;
+						break;
+				}*/
+				type = DT_LNK == ent->d_type ? OG_FTW_SL : OG_FTW_F;
+#endif
 				/* not dir, ignore OG_FTW_SKIP */
 				free(next_file);
 				if(-1 == asprintf(&next_file,"%s/%s", path, ent->d_name)){
 					fprintf(stderr, "out of memory!\n");
 					return -1;
 				}
-				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, &my_stat, base))){
+				if(OG_FTW_STOP == (ret = _handler_run(next_file, handler, &my_stat, type, base))){
 #if _OG_FTW_DEBUG > 3
 					fprintf(stderr, "[%s][%d]handler return nonzero,stop walk.\n", __FUNCTION__, __LINE__);
 #endif

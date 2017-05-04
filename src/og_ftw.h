@@ -9,6 +9,7 @@
 #define OG_FTW_SKIP		1
 #define OG_FTW_STOP		2
 
+#define OG_FTW_U		-1
 #define OG_FTW_F		0
 #define OG_FTW_D		1
 #define OG_FTW_DNR		2
